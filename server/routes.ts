@@ -18,7 +18,7 @@ export function registerRoutes(app: Express) {
       store: new SessionStore({
         checkPeriod: 86400000 // prune expired entries every 24h
       }),
-      secret: "your-secret-key",
+      secret: process.env.SESSION_SECRET || "your-secret-key",
       resave: false,
       saveUninitialized: false,
       cookie: {
