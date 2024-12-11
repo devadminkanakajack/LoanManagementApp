@@ -1,6 +1,15 @@
 {
   "variant": "professional",
-  "primary": "hsl(222.2 47.4% 11.2%)",
-  "appearance": "light",
-  "radius": 0.5
+  "primary": "hsl(210 40% 98%)",
+  "appearance": "dark",
+  "radius": 0.5,
+  "accentColor": "hsl(217.2 91.2% 59.8%)",
+  "grayColor": "hsl(217.2 32.6% 17.5%)",
+  "background": "hsl(222.2 47.4% 11.2%)",
+  "sidebar": {
+    "background": "hsl(222.2 47.4% 11.2%)",
+    "foreground": "hsl(210 40% 98%)",
+    "accent": "hsl(217.2 91.2% 59.8%)",
+    "border": "hsl(217.2 32.6% 17.5%)"
+  }
 }
