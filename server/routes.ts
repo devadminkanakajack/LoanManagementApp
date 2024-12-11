@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import express, { type Express } from "express";
 import { createServer } from "http";
 import { hash, compare } from "bcrypt";
 import session from "express-session";
