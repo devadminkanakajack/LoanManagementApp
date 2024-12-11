@@ -6,6 +6,8 @@ import { db } from "../db";
 import { users, loans, borrowers, payments } from "@db/schema";
 import { eq, and } from "drizzle-orm";
 import MemoryStore from "memorystore";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const SessionStore = MemoryStore(session);
 
@@ -115,6 +117,19 @@ export function registerRoutes(app: Express) {
       res.json(allBorrowers);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch borrowers" });
+    }
+  });
+
+  // Serve static files from the React app
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  app.use(express.static(path.join(__dirname, '../dist')));
+
+  // Handle React routing, return all requests to React app
+  app.get('*', (req, res) => {
+    if (req.url.startsWith('/api')) {
+      res.status(404).json({ message: 'API endpoint not found' });
+    } else {
+      res.sendFile(path.join(__dirname, '../dist/index.html'));
     }
   });
 
