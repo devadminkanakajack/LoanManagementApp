@@ -2,13 +2,13 @@ import { Switch, Route } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
+import MainLayout from "./components/layout/MainLayout";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
-import DashboardLayout from "./components/layout/DashboardLayout";
 import Home from "./pages/dashboard/Home";
 import UserManagement from "./pages/dashboard/UserManagement";
-import Borrowers from "./pages/dashboard/Borrowers";
 import Loans from "./pages/dashboard/Loans";
+import Analytics from "./pages/dashboard/Analytics";
 import CustomerPortal from "./pages/customer/CustomerPortal";
 import { useAuth } from "./lib/auth";
 
@@ -16,7 +16,11 @@ function App() {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
   }
 
   return (
@@ -30,30 +34,22 @@ function App() {
           {user?.role === 'borrower' ? <CustomerPortal /> : <Login />}
         </Route>
 
-        {/* Admin Dashboard */}
-        <Route path="/dashboard/:page*">
+        {/* Admin and Staff Dashboard */}
+        <Route path="/:page*">
           {user && user.role !== 'borrower' ? (
-            <DashboardLayout>
+            <MainLayout>
               <Switch>
-                <Route path="/dashboard" component={Home} />
-                <Route path="/dashboard/users" component={UserManagement} />
-                <Route path="/dashboard/borrowers" component={Borrowers} />
-                <Route path="/dashboard/loans" component={Loans} />
-                <Route>404 - Not Found</Route>
+                <Route path="/" component={Home} />
+                <Route path="/users" component={UserManagement} />
+                <Route path="/loans" component={Loans} />
+                <Route path="/analytics" component={Analytics} />
+                <Route>
+                  <div className="flex h-[80vh] items-center justify-center">
+                    <h1 className="text-2xl font-semibold">404 - Page Not Found</h1>
+                  </div>
+                </Route>
               </Switch>
-            </DashboardLayout>
-          ) : (
-            <Login />
-          )}
-        </Route>
-
-        <Route path="/">
-          {user ? (
-            user.role === 'borrower' ? (
-              <CustomerPortal />
-            ) : (
-              <Home />
-            )
+            </MainLayout>
           ) : (
             <Login />
           )}
