@@ -65,6 +65,65 @@ export function registerRoutes(app: Express) {
     });
   });
 
+  // Registration route
+  app.post("/api/auth/register", async (req, res) => {
+    const { username, password, email, fullName, phoneNumber, address, employmentStatus, monthlyIncome } = req.body;
+
+    try {
+      // Check if username or email already exists
+      const existingUser = await db.query.users.findFirst({
+        where: eq(users.username, username)
+      });
+
+      if (existingUser) {
+        return res.status(400).json({ message: "Username already exists" });
+      }
+
+      const existingEmail = await db.query.users.findFirst({
+        where: eq(users.email, email)
+      });
+
+      if (existingEmail) {
+        return res.status(400).json({ message: "Email already registered" });
+      }
+
+      // Hash password
+      const hashedPassword = await hash(password, 10);
+
+      // Create user with borrower role
+      const [newUser] = await db.insert(users).values({
+        username,
+        password: hashedPassword,
+        email,
+        fullName,
+        role: 'borrower',
+      }).returning();
+
+      // Create borrower record
+      await db.insert(borrowers).values({
+        userId: newUser.id,
+        phoneNumber,
+        address,
+        employmentStatus,
+        monthlyIncome: new Decimal(monthlyIncome),
+      });
+
+      res.status(201).json({ 
+        message: "Registration successful",
+        user: {
+          id: newUser.id,
+          username: newUser.username,
+          role: newUser.role,
+          email: newUser.email,
+          fullName: newUser.fullName
+        }
+      });
+    } catch (error) {
+      console.error("Registration error:", error);
+      res.status(500).json({ message: "Failed to register user" });
+    }
+  });
+
   // User routes
   app.get("/api/users", async (req, res) => {
     try {

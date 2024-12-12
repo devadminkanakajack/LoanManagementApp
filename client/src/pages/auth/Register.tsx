@@ -22,6 +22,12 @@ const registerSchema = z.object({
   email: z.string().email("Invalid email address"),
   fullName: z.string().min(1, "Full name is required"),
   phoneNumber: z.string().min(1, "Phone number is required"),
+  address: z.string().min(1, "Address is required"),
+  employmentStatus: z.string().min(1, "Employment status is required"),
+  monthlyIncome: z.string()
+    .min(1, "Monthly income is required")
+    .transform(val => parseFloat(val))
+    .refine(val => val > 0, "Monthly income must be greater than 0"),
 });
 
 export default function Register() {
@@ -37,6 +43,9 @@ export default function Register() {
       email: "",
       fullName: "",
       phoneNumber: "",
+      address: "",
+      employmentStatus: "",
+      monthlyIncome: "",
     },
   });
 
@@ -146,6 +155,56 @@ export default function Register() {
                       <FormLabel>Phone Number</FormLabel>
                       <FormControl>
                         <Input {...field} disabled={isLoading} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address</FormLabel>
+                      <FormControl>
+                        <Input {...field} disabled={isLoading} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="employmentStatus"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Employment Status</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select employment status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="employed">Employed</SelectItem>
+                          <SelectItem value="self_employed">Self Employed</SelectItem>
+                          <SelectItem value="business_owner">Business Owner</SelectItem>
+                          <SelectItem value="retired">Retired</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="monthlyIncome"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Monthly Income ($)</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" {...field} disabled={isLoading} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
