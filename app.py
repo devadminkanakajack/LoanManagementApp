@@ -172,25 +172,95 @@ class Document(db.Model):
                 # Extract structured data based on document type
                 extracted_data = {}
                 
-                if self.document_type == 'payslip':
+                if self.document_type == 'loan_application':
+                    # Extract personal details
+                    name_pattern = r'Name:?\s*([^\n]+)'
+                    email_pattern = r'Email:?\s*([^\n@]+@[^\n]+)'
+                    phone_pattern = r'(?:Phone|Mobile):?\s*([\d\s\-+]+)'
+                    address_pattern = r'Address:?\s*([^\n]+)'
+                    
+                    # Extract loan details
+                    loan_amount_pattern = r'Loan\s+Amount:?\s*\$?\s*([\d,]+\.?\d*)'
+                    purpose_pattern = r'Purpose:?\s*([^\n]+)'
+                    term_pattern = r'Term:?\s*(\d+)\s*(?:months|years)'
+                    
+                    # Match patterns
+                    name_match = re.search(name_pattern, self.ocr_text, re.IGNORECASE)
+                    email_match = re.search(email_pattern, self.ocr_text, re.IGNORECASE)
+                    phone_match = re.search(phone_pattern, self.ocr_text, re.IGNORECASE)
+                    address_match = re.search(address_pattern, self.ocr_text, re.IGNORECASE)
+                    loan_match = re.search(loan_amount_pattern, self.ocr_text, re.IGNORECASE)
+                    purpose_match = re.search(purpose_pattern, self.ocr_text, re.IGNORECASE)
+                    term_match = re.search(term_pattern, self.ocr_text, re.IGNORECASE)
+                    
+                    if name_match:
+                        extracted_data['name'] = name_match.group(1).strip()
+                    if email_match:
+                        extracted_data['email'] = email_match.group(1).strip()
+                    if phone_match:
+                        extracted_data['phone'] = phone_match.group(1).strip()
+                    if address_match:
+                        address = address_match.group(1).strip()
+                        # Try to parse address components
+                        address_parts = address.split(',')
+                        if len(address_parts) >= 3:
+                            extracted_data['street_name'] = address_parts[0].strip()
+                            extracted_data['suburb'] = address_parts[1].strip()
+                            extracted_data['district'] = address_parts[2].strip()
+                    if loan_match:
+                        extracted_data['loan_amount'] = float(loan_match.group(1).replace(',', ''))
+                    if purpose_match:
+                        purpose = purpose_match.group(1).strip().lower()
+                        # Map purpose to product type
+                        purpose_mapping = {
+                            'school': 'school_fees',
+                            'education': 'school_fees',
+                            'medical': 'medical',
+                            'health': 'medical',
+                            'vacation': 'vacation',
+                            'holiday': 'vacation',
+                            'funeral': 'funeral',
+                            'customary': 'customary'
+                        }
+                        for key, value in purpose_mapping.items():
+                            if key in purpose:
+                                extracted_data['product_type'] = value
+                                break
+                        else:
+                            extracted_data['product_type'] = 'others'
+                    if term_match:
+                        term_months = int(term_match.group(1))
+                        extracted_data['number_of_fortnights'] = term_months * 2
+                
+                elif self.document_type == 'payslip':
                     # Extract salary information
                     salary_pattern = r'Gross\s+Salary:?\s*\$?\s*([\d,]+\.?\d*)'
+                    net_salary_pattern = r'Net\s+Salary:?\s*\$?\s*([\d,]+\.?\d*)'
+                    
                     salary_match = re.search(salary_pattern, self.ocr_text, re.IGNORECASE)
+                    net_salary_match = re.search(net_salary_pattern, self.ocr_text, re.IGNORECASE)
+                    
                     if salary_match:
                         extracted_data['gross_salary'] = float(salary_match.group(1).replace(',', ''))
+                    if net_salary_match:
+                        extracted_data['net_salary'] = float(net_salary_match.group(1).replace(',', ''))
                 
                 elif self.document_type == 'employment_confirmation':
                     # Extract employment details
                     position_pattern = r'Position:?\s*([^\n]+)'
                     date_pattern = r'Date\s+Employed:?\s*(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})'
+                    department_pattern = r'Department:?\s*([^\n]+)'
                     
                     position_match = re.search(position_pattern, self.ocr_text, re.IGNORECASE)
                     date_match = re.search(date_pattern, self.ocr_text, re.IGNORECASE)
+                    department_match = re.search(department_pattern, self.ocr_text, re.IGNORECASE)
                     
                     if position_match:
                         extracted_data['position'] = position_match.group(1).strip()
                     if date_match:
                         extracted_data['date_employed'] = date_match.group(1)
+                    if department_match:
+                        extracted_data['company_department'] = department_match.group(1).strip()
                 
                 self.extracted_data = extracted_data
                 
@@ -306,11 +376,69 @@ def customer_portal():
     
     return render_template('customer/portal.html', loans=loans, documents=documents)
 
+@app.route('/upload-application', methods=['GET', 'POST'])
+@login_required
+def upload_application():
+    if current_user.role != 'borrower':
+        return redirect(url_for('dashboard'))
+        
+    if request.method == 'POST':
+        if 'application_document' not in request.files:
+            flash('No file uploaded', 'error')
+            return redirect(request.url)
+            
+        file = request.files['application_document']
+        if file.filename == '':
+            flash('No selected file', 'error')
+            return redirect(request.url)
+            
+        if file:
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            
+            # Ensure the file is a valid type
+            allowed_extensions = {'.pdf', '.png', '.jpg', '.jpeg'}
+            if not any(filename.lower().endswith(ext) for ext in allowed_extensions):
+                flash('Invalid file type. Please upload PDF or image files.', 'error')
+                return redirect(request.url)
+            
+            try:
+                file.save(file_path)
+                document = Document(
+                    document_type='loan_application',
+                    file_path=file_path
+                )
+                
+                db.session.add(document)
+                db.session.flush()
+                
+                # Process OCR immediately
+                document.process_ocr()
+                db.session.commit()
+                
+                # Redirect to loan application form with extracted data
+                return redirect(url_for('apply_loan', document_id=document.id))
+                
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Error processing document: {str(e)}', 'error')
+                return redirect(request.url)
+    
+    return render_template('customer/upload_application.html')
+
 @app.route('/apply-loan', methods=['GET', 'POST'])
 @login_required
 def apply_loan():
     if current_user.role != 'borrower':
         return redirect(url_for('dashboard'))
+        
+    # Get pre-filled data from uploaded document if available
+    prefill_data = {}
+    document_id = request.args.get('document_id')
+    if document_id:
+        document = Document.query.get(document_id)
+        if document and document.extracted_data:
+            prefill_data = document.extracted_data
 
     if request.method == 'POST':
         try:

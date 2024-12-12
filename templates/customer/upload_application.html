@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8">Upload Loan Application Document</h1>
+        
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <form method="POST" enctype="multipart/form-data" class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Upload Application Document</label>
+                    <p class="text-sm text-gray-500 mb-2">Upload a scanned copy or photo of your filled loan application form. We'll extract the information automatically.</p>
+                    <input type="file" name="application_document" accept=".pdf,.jpg,.jpeg,.png" required 
+                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                
+                <div class="flex justify-end space-x-4">
+                    <a href="{{ url_for('apply_loan') }}" 
+                       class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                        Skip Upload
+                    </a>
+                    <button type="submit" 
+                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                        Upload and Extract Data
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <div class="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
+            <h2 class="text-lg font-semibold text-blue-800 mb-2">How it works</h2>
+            <ul class="list-disc list-inside space-y-2 text-blue-700">
+                <li>Upload a clear scan or photo of your filled loan application form</li>
+                <li>Our system will automatically extract information from the document</li>
+                <li>The application form will be pre-filled with the extracted data</li>
+                <li>You can review and edit any information before final submission</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
