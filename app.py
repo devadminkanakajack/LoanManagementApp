@@ -173,25 +173,77 @@ class Document(db.Model):
                 extracted_data = {}
                 
                 if self.document_type == 'loan_application':
-                    # Extract personal details
-                    name_pattern = r'Name:?\s*([^\n]+)'
-                    email_pattern = r'Email:?\s*([^\n@]+@[^\n]+)'
-                    phone_pattern = r'(?:Phone|Mobile):?\s*([\d\s\-+]+)'
-                    address_pattern = r'Address:?\s*([^\n]+)'
+                    # Personal Details patterns
+                    patterns = {
+                        'name': r'Name:?\s*([^\n]+)',
+                        'date_of_birth': r'Date\s+of\s+Birth:?\s*(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})',
+                        'gender': r'Gender:?\s*([MF]|Male|Female)',
+                        'mobile_number': r'Mobile(?:\s+Number)?:?\s*([\d\s\-+]+)',
+                        'email': r'Email:?\s*([^\n@]+@[^\n]+)',
+                        'village': r'Village:?\s*([^\n]+)',
+                        'district': r'District:?\s*([^\n]+)',
+                        'province': r'Province:?\s*([^\n]+)',
+                        'nationality': r'Nationality:?\s*([^\n]+)',
+                        
+                        # Employment Details
+                        'company_department': r'(?:Company|Department):?\s*([^\n]+)',
+                        'file_number': r'File\s+Number:?\s*([^\n]+)',
+                        'position': r'Position:?\s*([^\n]+)',
+                        'postal_address': r'Postal\s+Address:?\s*([^\n]+)',
+                        'phone': r'Phone:?\s*([\d\s\-+]+)',
+                        'date_employed': r'Date\s+Employed:?\s*(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})',
+                        'paymaster': r'Paymaster:?\s*([^\n]+)',
+                        
+                        # Residential Address
+                        'lot': r'Lot:?\s*([^\n]+)',
+                        'section': r'Section:?\s*([^\n]+)',
+                        'suburb': r'Suburb:?\s*([^\n]+)',
+                        'street_name': r'Street\s+Name:?\s*([^\n]+)',
+                        'marital_status': r'Marital\s+Status:?\s*(Single|Married|Divorced|Widowed)',
+                        'spouse_last_name': r'Spouse\s+Last\s+Name:?\s*([^\n]+)',
+                        'spouse_first_name': r'Spouse\s+First\s+Name:?\s*([^\n]+)',
+                        'spouse_employer_name': r'Spouse\s+Employer:?\s*([^\n]+)',
+                        'spouse_contact': r'Spouse\s+Contact:?\s*([\d\s\-+]+)',
+                        
+                        # Financial Details
+                        'loan_amount': r'Loan\s+Amount:?\s*\$?\s*([\d,]+\.?\d*)',
+                        'fortnightly_repayment': r'Fortnightly\s+Repayment:?\s*\$?\s*([\d,]+\.?\d*)',
+                        'number_of_fortnights': r'Number\s+of\s+Fortnights:?\s*(\d+)',
+                        'total_loan_repayable': r'Total\s+Loan\s+Repayable:?\s*\$?\s*([\d,]+\.?\d*)',
+                        'gross_salary': r'Gross\s+Salary:?\s*\$?\s*([\d,]+\.?\d*)',
+                        'net_salary': r'Net\s+Salary:?\s*\$?\s*([\d,]+\.?\d*)',
+                        
+                        # Loan Product
+                        'product_type': r'Product\s+Type:?\s*(School\s+Fees|Medical|Vacation|Funeral|Customary|Others)',
+                        'product_description': r'Product\s+Description:?\s*([^\n]+)',
+                        
+                        # Bank Details
+                        'bank': r'Bank:?\s*([^\n]+)',
+                        'branch': r'Branch:?\s*([^\n]+)',
+                        'bsb_code': r'BSB\s+Code:?\s*([^\n]+)',
+                        'account_name': r'Account\s+Name:?\s*([^\n]+)',
+                        'account_number': r'Account\s+Number:?\s*([^\n]+)',
+                        'account_type': r'Account\s+Type:?\s*(Savings|Cheque)'
+                    }
                     
-                    # Extract loan details
-                    loan_amount_pattern = r'Loan\s+Amount:?\s*\$?\s*([\d,]+\.?\d*)'
-                    purpose_pattern = r'Purpose:?\s*([^\n]+)'
-                    term_pattern = r'Term:?\s*(\d+)\s*(?:months|years)'
-                    
-                    # Match patterns
-                    name_match = re.search(name_pattern, self.ocr_text, re.IGNORECASE)
-                    email_match = re.search(email_pattern, self.ocr_text, re.IGNORECASE)
-                    phone_match = re.search(phone_pattern, self.ocr_text, re.IGNORECASE)
-                    address_match = re.search(address_pattern, self.ocr_text, re.IGNORECASE)
-                    loan_match = re.search(loan_amount_pattern, self.ocr_text, re.IGNORECASE)
-                    purpose_match = re.search(purpose_pattern, self.ocr_text, re.IGNORECASE)
-                    term_match = re.search(term_pattern, self.ocr_text, re.IGNORECASE)
+                    # Extract all fields
+                    extracted_data = {}
+                    for field, pattern in patterns.items():
+                        match = re.search(pattern, self.ocr_text, re.IGNORECASE)
+                        if match:
+                            value = match.group(1).strip()
+                            # Convert specific fields to appropriate types
+                            if field in ['loan_amount', 'fortnightly_repayment', 'total_loan_repayable', 'gross_salary', 'net_salary']:
+                                try:
+                                    value = float(value.replace(',', ''))
+                                except ValueError:
+                                    pass
+                            elif field in ['number_of_fortnights']:
+                                try:
+                                    value = int(value)
+                                except ValueError:
+                                    pass
+                            extracted_data[field] = value
                     
                     if name_match:
                         extracted_data['name'] = name_match.group(1).strip()
@@ -414,10 +466,90 @@ def upload_application():
                 
                 # Process OCR immediately
                 document.process_ocr()
-                db.session.commit()
                 
-                # Redirect to loan application form with extracted data
-                return redirect(url_for('apply_loan', document_id=document.id))
+                if document.ocr_status == 'completed' and document.extracted_data:
+                    # Create new loan application with extracted data
+                    application = LoanApplication(user_id=current_user.id)
+                    db.session.add(application)
+                    db.session.flush()
+                    
+                    # Create personal details
+                    if any(key in document.extracted_data for key in ['name', 'date_of_birth', 'gender', 'mobile_number']):
+                        personal = PersonalDetails(
+                            loan_application_id=application.id,
+                            name=document.extracted_data.get('name', ''),
+                            date_of_birth=datetime.strptime(document.extracted_data.get('date_of_birth', '2000-01-01'), '%d/%m/%Y').date(),
+                            gender=document.extracted_data.get('gender', 'M')[0].upper(),
+                            mobile_number=document.extracted_data.get('mobile_number', ''),
+                            email=document.extracted_data.get('email', ''),
+                            village=document.extracted_data.get('village', ''),
+                            district=document.extracted_data.get('district', ''),
+                            province=document.extracted_data.get('province', ''),
+                            nationality=document.extracted_data.get('nationality', '')
+                        )
+                        db.session.add(personal)
+                    
+                    # Create employment details
+                    if any(key in document.extracted_data for key in ['company_department', 'position', 'file_number']):
+                        employment = EmploymentDetails(
+                            loan_application_id=application.id,
+                            company_department=document.extracted_data.get('company_department', ''),
+                            file_number=document.extracted_data.get('file_number', ''),
+                            position=document.extracted_data.get('position', ''),
+                            postal_address=document.extracted_data.get('postal_address', ''),
+                            phone=document.extracted_data.get('phone', ''),
+                            date_employed=datetime.strptime(document.extracted_data.get('date_employed', '2000-01-01'), '%d/%m/%Y').date(),
+                            paymaster=document.extracted_data.get('paymaster', '')
+                        )
+                        db.session.add(employment)
+                    
+                    # Create residential address
+                    if any(key in document.extracted_data for key in ['lot', 'section', 'suburb']):
+                        residential = ResidentialAddress(
+                            loan_application_id=application.id,
+                            lot=document.extracted_data.get('lot', ''),
+                            section=document.extracted_data.get('section', ''),
+                            suburb=document.extracted_data.get('suburb', ''),
+                            street_name=document.extracted_data.get('street_name', ''),
+                            marital_status=document.extracted_data.get('marital_status', 'single').lower(),
+                            spouse_last_name=document.extracted_data.get('spouse_last_name', ''),
+                            spouse_first_name=document.extracted_data.get('spouse_first_name', ''),
+                            spouse_employer_name=document.extracted_data.get('spouse_employer_name', ''),
+                            spouse_contact=document.extracted_data.get('spouse_contact', '')
+                        )
+                        db.session.add(residential)
+                    
+                    # Create loan product
+                    if any(key in document.extracted_data for key in ['product_type']):
+                        product = LoanProduct(
+                            loan_application_id=application.id,
+                            product_type=document.extracted_data.get('product_type', 'others').lower(),
+                            description=document.extracted_data.get('product_description', '')
+                        )
+                        db.session.add(product)
+                    
+                    # Create financial details
+                    if any(key in document.extracted_data for key in ['loan_amount', 'gross_salary']):
+                        financial = FinancialDetails(
+                            loan_application_id=application.id,
+                            loan_amount=document.extracted_data.get('loan_amount', 0.0),
+                            fortnightly_repayment=document.extracted_data.get('fortnightly_repayment', 0.0),
+                            number_of_fortnights=document.extracted_data.get('number_of_fortnights', 0),
+                            total_loan_repayable=document.extracted_data.get('total_loan_repayable', 0.0),
+                            gross_salary=document.extracted_data.get('gross_salary', 0.0),
+                            net_salary=document.extracted_data.get('net_salary', 0.0)
+                        )
+                        db.session.add(financial)
+                    
+                    # Link document to application
+                    document.application_id = application.id
+                    
+                    db.session.commit()
+                    flash('Application submitted successfully! You can now upload supporting documents.', 'success')
+                    return redirect(url_for('upload_document'))
+                else:
+                    flash('Error processing application document. Please ensure all required information is clearly visible.', 'error')
+                    return redirect(request.url)
                 
             except Exception as e:
                 db.session.rollback()
@@ -426,19 +558,11 @@ def upload_application():
     
     return render_template('customer/upload_application.html')
 
-@app.route('/apply-loan', methods=['GET', 'POST'])
+@app.route('/apply-loan')
 @login_required
 def apply_loan():
-    if current_user.role != 'borrower':
-        return redirect(url_for('dashboard'))
-        
-    # Get pre-filled data from uploaded document if available
-    prefill_data = {}
-    document_id = request.args.get('document_id')
-    if document_id:
-        document = Document.query.get(document_id)
-        if document and document.extracted_data:
-            prefill_data = document.extracted_data
+    # Redirect all loan applications to the document upload route
+    return redirect(url_for('upload_application'))
 
     if request.method == 'POST':
         try:
