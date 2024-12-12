@@ -47,13 +47,36 @@ class Loan(db.Model):
     documents = db.relationship('Document', backref='loan', lazy=True)
 
 class Document(db.Model):
+    __tablename__ = 'documents'
     id = db.Column(db.Integer, primary_key=True)
     loan_id = db.Column(db.Integer, db.ForeignKey('loan.id'), nullable=False)
     document_type = db.Column(db.String(50), nullable=False)
-    file_path = db.Column(db.String(200), nullable=False) #Modified from filename
+    file_path = db.Column(db.String(200), nullable=False)
     uploaded_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     ocr_status = db.Column(db.String(20), nullable=False, default='pending')
     ocr_text = db.Column(db.Text)
+
+    def process_ocr(self):
+        """Process OCR on the uploaded document"""
+        try:
+            import pytesseract
+            from PIL import Image
+            
+            if self.file_path.lower().endswith(('.png', '.jpg', '.jpeg')):
+                img = Image.open(self.file_path)
+                self.ocr_text = pytesseract.image_to_string(img)
+                self.ocr_status = 'completed'
+            elif self.file_path.lower().endswith('.pdf'):
+                # For PDFs, we'll just store the path for now
+                self.ocr_status = 'unsupported_format'
+            else:
+                self.ocr_status = 'invalid_format'
+            
+            db.session.commit()
+        except Exception as e:
+            print(f"OCR processing error: {str(e)}")
+            self.ocr_status = 'failed'
+            db.session.commit()
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -175,26 +198,58 @@ def view_loan_details(loan_id):
 def upload_document():
     if current_user.role != 'borrower':
         return redirect(url_for('dashboard'))
+    
+    # Get user's active loans
+    loans = Loan.query.filter_by(user_id=current_user.id).all()
+    documents = Document.query.join(Loan).filter(
+        Loan.user_id == current_user.id
+    ).order_by(Document.uploaded_at.desc()).all()
+    
     if request.method == 'POST':
-        if 'file' not in request.files:
-            flash('No file part')
+        if 'document' not in request.files:
+            flash('No file part', 'error')
             return redirect(request.url)
-        file = request.files['file']
+            
+        file = request.files['document']
         if file.filename == '':
-            flash('No selected file')
+            flash('No selected file', 'error')
             return redirect(request.url)
+            
         if file:
             filename = secure_filename(file.filename)
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(file_path)
-            loan_id = request.form.get('loan_id')
-            document_type = request.form.get('document_type')
-            new_document = Document(loan_id=loan_id, document_type=document_type, file_path=file_path)
-            db.session.add(new_document)
-            db.session.commit()
-            flash('File uploaded successfully')
-            return redirect(url_for('customer_portal'))
-    return render_template('customer/document_upload.html')
+            
+            # Ensure the file is a valid type
+            allowed_extensions = {'.pdf', '.png', '.jpg', '.jpeg'}
+            if not any(filename.lower().endswith(ext) for ext in allowed_extensions):
+                flash('Invalid file type. Please upload PDF or image files.', 'error')
+                return redirect(request.url)
+            
+            try:
+                file.save(file_path)
+                document_type = request.form.get('document_type')
+                loan_id = request.form.get('loan_id')
+                
+                new_document = Document(
+                    loan_id=loan_id,
+                    document_type=document_type,
+                    file_path=file_path
+                )
+                
+                db.session.add(new_document)
+                db.session.commit()
+                
+                # Process OCR after saving
+                new_document.process_ocr()
+                
+                flash('Document uploaded successfully. OCR processing initiated.', 'success')
+                return redirect(url_for('customer_portal'))
+                
+            except Exception as e:
+                flash(f'Error uploading document: {str(e)}', 'error')
+                return redirect(request.url)
+                
+    return render_template('customer/document_upload.html', loans=loans, documents=documents)
 
 
 @app.route('/view-document/<int:document_id>')
