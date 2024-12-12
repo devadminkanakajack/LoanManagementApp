@@ -23,11 +23,7 @@ const registerSchema = z.object({
   fullName: z.string().min(1, "Full name is required"),
   phoneNumber: z.string().min(1, "Phone number is required"),
   address: z.string().min(1, "Address is required"),
-  employmentStatus: z.string().min(1, "Employment status is required"),
-  monthlyIncome: z.string()
-    .min(1, "Monthly income is required")
-    .transform(val => parseFloat(val))
-    .refine(val => val > 0, "Monthly income must be greater than 0"),
+  department: z.string().min(1, "Department is required"),
 });
 
 export default function Register() {
@@ -44,8 +40,7 @@ export default function Register() {
       fullName: "",
       phoneNumber: "",
       address: "",
-      employmentStatus: "",
-      monthlyIncome: "",
+      department: "",
     },
   });
 
@@ -175,37 +170,22 @@ export default function Register() {
                 />
                 <FormField
                   control={form.control}
-                  name="employmentStatus"
+                  name="department"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Employment Status</FormLabel>
+                      <FormLabel>Department</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select employment status" />
+                            <SelectValue placeholder="Select department" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="employed">Employed</SelectItem>
-                          <SelectItem value="self_employed">Self Employed</SelectItem>
-                          <SelectItem value="business_owner">Business Owner</SelectItem>
-                          <SelectItem value="retired">Retired</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
+                          <SelectItem value="finance">Finance</SelectItem>
+                          <SelectItem value="immigration">Immigrations and Citizenship Services Authority</SelectItem>
+                          <SelectItem value="works">Works and Highways</SelectItem>
                         </SelectContent>
                       </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="monthlyIncome"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Monthly Income ($)</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.01" {...field} disabled={isLoading} />
-                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
