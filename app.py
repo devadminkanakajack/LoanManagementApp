@@ -163,7 +163,46 @@ def dashboard():
 def customer_portal():
     if current_user.role != 'borrower':
         return redirect(url_for('dashboard'))
-    return render_template('customer/portal.html')
+    
+@app.route('/apply-loan')
+@login_required
+def apply_loan():
+    if current_user.role != 'borrower':
+        return redirect(url_for('dashboard'))
+    return render_template('customer/loan_application.html')
+
+@app.route('/view-loan/<int:loan_id>')
+@login_required
+def view_loan_details(loan_id):
+    if current_user.role != 'borrower':
+        return redirect(url_for('dashboard'))
+    loan = Loan.query.filter_by(id=loan_id, user_id=current_user.id).first_or_404()
+    return render_template('customer/loan_details.html', loan=loan)
+
+@app.route('/upload-document')
+@login_required
+def upload_document():
+    if current_user.role != 'borrower':
+        return redirect(url_for('dashboard'))
+    return render_template('customer/document_upload.html')
+
+@app.route('/view-document/<int:document_id>')
+@login_required
+def view_document(document_id):
+    if current_user.role != 'borrower':
+        return redirect(url_for('dashboard'))
+    document = Document.query.join(Loan).filter(
+        Document.id == document_id,
+        Loan.user_id == current_user.id
+    ).first_or_404()
+    return render_template('customer/view_document.html', document=document)
+    # Get user's loans
+    loans = Loan.query.filter_by(user_id=current_user.id).all()
+    
+    # Get user's documents
+    documents = Document.query.join(Loan).filter(Loan.user_id == current_user.id).order_by(Document.uploaded_at.desc()).limit(5).all()
+    
+    return render_template('customer/portal.html', loans=loans, documents=documents)
 
 if __name__ == '__main__':
     with app.app_context():

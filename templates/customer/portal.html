@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8">Customer Portal</h1>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <!-- Quick Actions -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Quick Actions</h2>
+                <div class="space-y-4">
+                    <a href="{{ url_for('apply_loan') }}" 
+                       class="block w-full text-center bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
+                        Apply for New Loan
+                    </a>
+                    <a href="{{ url_for('upload_document') }}"
+                       class="block w-full text-center bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700">
+                        Upload Documents
+                    </a>
+                </div>
+            </div>
+
+            <!-- Account Summary -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Account Summary</h2>
+                <div class="space-y-2">
+                    <p><span class="font-medium">Name:</span> {{ current_user.full_name }}</p>
+                    <p><span class="font-medium">Department:</span> {{ current_user.department }}</p>
+                    <p><span class="font-medium">Account Status:</span> Active</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Loans -->
+        <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <h2 class="text-xl font-semibold mb-4">Active Loans</h2>
+            {% if loans %}
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Loan ID</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Term</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for loan in loans %}
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap">{{ loan.id }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${{ "%.2f"|format(loan.amount) }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        {% if loan.status == 'approved' %}bg-green-100 text-green-800
+                                        {% elif loan.status == 'pending' %}bg-yellow-100 text-yellow-800
+                                        {% else %}bg-red-100 text-red-800{% endif %}">
+                                        {{ loan.status|title }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">{{ loan.term }} months</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    <a href="{{ url_for('view_loan_details', loan_id=loan.id) }}" 
+                                       class="text-blue-600 hover:text-blue-900">View Details</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-gray-500 text-center py-4">No active loans found.</p>
+            {% endif %}
+        </div>
+
+        <!-- Recent Documents -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-4">Recent Documents</h2>
+            {% if documents %}
+                <div class="space-y-4">
+                    {% for doc in documents %}
+                    <div class="flex justify-between items-center border-b pb-4">
+                        <div>
+                            <p class="font-medium">{{ doc.document_type|title|replace('_', ' ') }}</p>
+                            <p class="text-sm text-gray-500">Uploaded: {{ doc.uploaded_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                        </div>
+                        <a href="{{ url_for('view_document', document_id=doc.id) }}" 
+                           class="text-blue-600 hover:text-blue-900">View</a>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-gray-500 text-center py-4">No documents uploaded yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
