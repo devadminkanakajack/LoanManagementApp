@@ -4,7 +4,7 @@ import { hash, compare } from "bcrypt";
 import session from "express-session";
 import { db } from "../db";
 import { users, loans, borrowers, payments } from "@db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import MemoryStore from "memorystore";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -120,9 +120,50 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // Dashboard stats endpoint
+  app.get("/api/dashboard/stats", async (req, res) => {
+    try {
+      const [
+        totalLoans,
+        totalBorrowers,
+        defaultedLoans,
+        monthlyLoans
+      ] = await Promise.all([
+        db.select({ count: sql<number>`count(*)` }).from(loans).then(result => result[0].count),
+        db.select({ count: sql<number>`count(*)` }).from(borrowers).then(result => result[0].count),
+        db.select({ count: sql<number>`count(*)` }).from(loans)
+          .where(eq(loans.status, 'defaulted'))
+          .then(result => result[0].count),
+        db.query.analytics.findMany({
+          where: eq(analytics.metricType, 'loan_volume'),
+          orderBy: (analytics, { desc }) => [desc(analytics.createdAt)],
+          limit: 12
+        })
+      ]);
+
+      const totalAmount = await db.select({
+        sum: sql<string>`sum(${loans.amount}::numeric)::text`
+      }).from(loans);
+
+      res.json({
+        totalLoans,
+        totalBorrowers,
+        totalAmount: parseFloat(totalAmount[0]?.sum || '0'),
+        defaultedLoans,
+        monthlyLoans: monthlyLoans.map(loan => ({
+          month: new Date(loan.createdAt).toLocaleString('default', { month: 'short' }),
+          amount: parseFloat(loan.metricValue.toString())
+        }))
+      });
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+      res.status(500).json({ message: "Failed to fetch dashboard stats" });
+    }
+  });
+
   // Serve static files from the React app
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
-  app.use(express.static(path.join(__dirname, '../dist')));
+  app.use(express.static(path.join(__dirname, '../dist/public')));
 
   // Handle React routing, return all requests to React app
   app.get('*', (req, res) => {

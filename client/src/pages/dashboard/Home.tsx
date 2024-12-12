@@ -19,7 +19,14 @@ import { DollarSign, Users, CreditCard, AlertCircle } from "lucide-react";
 
 export default function Home() {
   const { data: stats, isLoading } = useQuery({
-    queryKey: ["/api/dashboard/stats"],
+    queryKey: ["dashboard-stats"],
+    queryFn: async () => {
+      const response = await fetch("/api/dashboard/stats");
+      if (!response.ok) {
+        throw new Error("Failed to fetch dashboard stats");
+      }
+      return response.json();
+    },
   });
 
   if (isLoading) {

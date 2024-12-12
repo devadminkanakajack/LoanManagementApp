@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="py-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center">
+            <h1 class="text-4xl font-bold text-gray-900 mb-4">
+                Welcome to LoanManager
+            </h1>
+            <p class="text-xl text-gray-600 mb-8">
+                Manage your loans efficiently and securely
+            </p>
+            <div class="space-x-4">
+                <a href="{{ url_for('login') }}" class="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
+                    Login
+                </a>
+                <a href="{{ url_for('register') }}" class="inline-block bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700">
+                    Register
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
