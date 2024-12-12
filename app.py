@@ -77,12 +77,13 @@ def dashboard():
     return render_template('dashboard.html')
 
 @app.route('/customer-portal')
-@login_required
 def customer_portal():
-    if current_user.role != 'borrower':
-        return redirect(url_for('dashboard'))
-    documents = Document.query.filter_by(user_id=current_user.id).all()
-    return render_template('customer/document_upload.html', documents=documents)
+    if current_user.is_authenticated:
+        if current_user.role != 'borrower':
+            return redirect(url_for('dashboard'))
+        documents = Document.query.filter_by(user_id=current_user.id).all()
+        return render_template('customer/document_upload.html', documents=documents)
+    return render_template('customer/document_upload.html', documents=[])
 
 @app.route('/upload-document', methods=['POST'])
 @login_required
