@@ -39,10 +39,12 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
-    full_name = db.Column(db.String(200), nullable=False)
-    phone_number = db.Column(db.String(20), nullable=False)
-    address = db.Column(db.String(200), nullable=False)
-    department = db.Column(db.String(50), nullable=False)
+    full_name = db.Column(db.String(200), nullable=True)
+    phone_number = db.Column(db.String(20), nullable=True)
+    address = db.Column(db.String(200), nullable=True)
+    department = db.Column(db.String(50), nullable=True)
+    is_application_created = db.Column(db.Boolean, default=False)
+    password_changed = db.Column(db.Boolean, default=False)
     role = db.Column(db.String(20), nullable=False, default='borrower')
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     loans = db.relationship('Loan', backref='user', lazy=True)
@@ -367,10 +369,6 @@ def register():
         username = request.form.get('username')
         email = request.form.get('email')
         password = request.form.get('password')
-        full_name = request.form.get('full_name')
-        phone_number = request.form.get('phone_number')
-        address = request.form.get('address')
-        department = request.form.get('department')
         
         if User.query.filter_by(username=username).first():
             flash('Username already exists')
@@ -384,10 +382,6 @@ def register():
             username=username,
             email=email,
             password_hash=generate_password_hash(password),
-            full_name=full_name,
-            phone_number=phone_number,
-            address=address,
-            department=department,
             role='borrower'
         )
         
@@ -398,6 +392,45 @@ def register():
         return redirect(url_for('login'))
     
     return render_template('auth/register.html')
+
+def create_user_from_application(personal_details):
+    """Create a new user account from loan application data"""
+    # Generate username from email
+    email = personal_details.email
+    username = email.split('@')[0]
+    
+    # Check if username exists and modify if needed
+    base_username = username
+    counter = 1
+    while User.query.filter_by(username=username).first():
+        username = f"{base_username}{counter}"
+        counter += 1
+    
+    # Create user with default password
+    user = User(
+        username=username,
+        email=email,
+        password_hash=generate_password_hash('password1234'),
+        full_name=personal_details.name,
+        phone_number=personal_details.mobile_number,
+        role='borrower',
+        is_application_created=True
+    )
+    
+    db.session.add(user)
+    db.session.flush()
+    
+    # Send email with credentials
+    send_credentials_email(email, username)
+    
+    return user
+
+def send_credentials_email(email, username):
+    """Send email with login credentials"""
+    # TODO: Implement email sending functionality
+    print(f"Sending credentials email to {email}")
+    print(f"Username: {username}")
+    print(f"Password: password1234")
 
 @app.route('/logout')
 @login_required
