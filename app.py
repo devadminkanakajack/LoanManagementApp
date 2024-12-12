@@ -132,24 +132,17 @@ def allowed_file(filename):
 
 def process_document_ocr(document_id, file_path):
     try:
-        # Perform OCR using pytesseract
-        from PIL import Image
-        import pytesseract
-        
-        # For PDFs, we'd need to convert pages to images first
-        # For this example, we'll handle only images
-        if file_path.lower().endswith(('.png', '.jpg', '.jpeg')):
-            image = Image.open(file_path)
-            text = pytesseract.image_to_string(image)
+        # For now, we'll just store the document without OCR
+        # Later we can implement cloud OCR service
+        document = Document.query.get(document_id)
+        if document:
+            document.ocr_status = 'pending'
+            document.ocr_result = {'message': 'OCR processing will be available soon'}
+            db.session.commit()
             
-            # Update document with OCR results
-            document = Document.query.get(document_id)
-            if document:
-                document.ocr_status = 'completed'
-                document.ocr_result = {'text': text}
-                db.session.commit()
+        app.logger.info(f"Document {document_id} stored successfully, OCR processing skipped")
     except Exception as e:
-        app.logger.error(f"OCR processing error: {str(e)}")
+        app.logger.error(f"Document processing error: {str(e)}")
         document = Document.query.get(document_id)
         if document:
             document.ocr_status = 'failed'
