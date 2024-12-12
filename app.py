@@ -35,7 +35,19 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128))
     role = db.Column(db.String(20), nullable=False, default='borrower')
-    loans = db.relationship('Loan', backref='borrower', lazy=True)
+    full_name = db.Column(db.String(200), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    loans = db.relationship('Loan', backref='user', lazy=True)
+
+class Borrower(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    phone_number = db.Column(db.String(20), nullable=False)
+    address = db.Column(db.String(200), nullable=False)
+    employment_status = db.Column(db.String(50), nullable=False)
+    monthly_income = db.Column(db.Float, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    user = db.relationship('User', backref='borrower_profile', uselist=False)
 
 class Loan(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -175,6 +187,11 @@ def register():
         username = request.form.get('username')
         email = request.form.get('email')
         password = request.form.get('password')
+        full_name = request.form.get('full_name')
+        phone_number = request.form.get('phone_number')
+        address = request.form.get('address')
+        employment_status = request.form.get('employment_status')
+        monthly_income = request.form.get('monthly_income')
         
         if User.query.filter_by(username=username).first():
             flash('Username already exists', 'error')
@@ -184,17 +201,36 @@ def register():
             flash('Email already registered', 'error')
             return redirect(url_for('register'))
         
-        user = User(
-            username=username,
-            email=email,
-            password_hash=generate_password_hash(password),
-            role='borrower'
-        )
-        db.session.add(user)
-        db.session.commit()
-        
-        flash('Registration successful! Please login.', 'success')
-        return redirect(url_for('login'))
+        try:
+            # Create user
+            user = User(
+                username=username,
+                email=email,
+                password_hash=generate_password_hash(password),
+                role='borrower',
+                full_name=full_name
+            )
+            db.session.add(user)
+            db.session.flush()  # Get the user ID
+            
+            # Create borrower profile
+            borrower = Borrower(
+                user_id=user.id,
+                phone_number=phone_number,
+                address=address,
+                employment_status=employment_status,
+                monthly_income=float(monthly_income)
+            )
+            db.session.add(borrower)
+            db.session.commit()
+            
+            flash('Registration successful! Please login.', 'success')
+            return redirect(url_for('login'))
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Registration error: {str(e)}")
+            flash('Registration failed. Please try again.', 'error')
+            return redirect(url_for('register'))
     
     return render_template('auth/register.html')
 
