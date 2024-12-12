@@ -241,8 +241,18 @@
                 </div>
             </div>
 
+            <!-- Form buttons -->
+            <div class="flex justify-end space-x-4">
+                <button type="button" onclick="history.back()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                    Submit Application
+                </button>
+            </div>
+
             <!-- Required Documents Section -->
-            <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <div class="bg-white p-6 rounded-lg shadow-md mt-8">
                 <h2 class="text-xl font-semibold mb-4">Required Documents</h2>
                 <div class="space-y-4">
                     <div>
@@ -270,16 +280,6 @@
                         <input type="file" name="identification" accept=".pdf,.jpg,.jpeg,.png" required class="mt-1 block w-full">
                     </div>
                 </div>
-            </div>
-
-            <!-- Form buttons -->
-            <div class="flex justify-end space-x-4">
-                <button type="button" onclick="history.back()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
-                    Cancel
-                </button>
-                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                    Submit Application
-                </button>
             </div>
         </form>
     </div>
