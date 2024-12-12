@@ -7,7 +7,7 @@ from werkzeug.utils import secure_filename
 import os
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -19,50 +19,46 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 db = SQLAlchemy(app)
-login_manager = LoginManager(app)
+login_manager = LoginManager()
+login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-# Models
 class User(UserMixin, db.Model):
-    __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(512), nullable=False)
+    password_hash = db.Column(db.String(128), nullable=False)
     full_name = db.Column(db.String(200), nullable=False)
     phone_number = db.Column(db.String(20), nullable=False)
     address = db.Column(db.String(200), nullable=False)
-    department = db.Column(db.String(100), nullable=False)
+    department = db.Column(db.String(50), nullable=False)
     role = db.Column(db.String(20), nullable=False, default='borrower')
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     loans = db.relationship('Loan', backref='user', lazy=True)
 
 class Loan(db.Model):
-    __tablename__ = 'loan'
     id = db.Column(db.Integer, primary_key=True)
-    amount = db.Column(db.Float, nullable=False)
-    term = db.Column(db.Integer, nullable=False)
-    status = db.Column(db.String(20), nullable=False, default='pending')
-    purpose = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    amount = db.Column(db.Numeric(10, 2), nullable=False)
+    term = db.Column(db.Integer, nullable=False)  # in months
+    status = db.Column(db.String(20), nullable=False, default='pending')
+    purpose = db.Column(db.Text, nullable=False) #Retained from original
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     documents = db.relationship('Document', backref='loan', lazy=True)
 
 class Document(db.Model):
-    __tablename__ = 'document'
     id = db.Column(db.Integer, primary_key=True)
-    filename = db.Column(db.String(200), nullable=False)
-    document_type = db.Column(db.String(50), nullable=False)
-    ocr_status = db.Column(db.String(20), default='pending')
-    ocr_result = db.Column(db.JSON)
     loan_id = db.Column(db.Integer, db.ForeignKey('loan.id'), nullable=False)
+    document_type = db.Column(db.String(50), nullable=False)
+    file_path = db.Column(db.String(200), nullable=False) #Modified from filename
     uploaded_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    ocr_status = db.Column(db.String(20), nullable=False, default='pending')
+    ocr_text = db.Column(db.Text)
 
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# Routes
 @app.route('/')
 def index():
     if current_user.is_authenticated:
@@ -71,10 +67,28 @@ def index():
         return redirect(url_for('dashboard'))
     return render_template('index.html')
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        user = User.query.filter_by(username=username).first()
+        
+        if user and check_password_hash(user.password_hash, password):
+            login_user(user)
+            return redirect(url_for('index'))
+        
+        flash('Invalid username or password')
+    
+    return render_template('auth/login.html')
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('index'))
     
     if request.method == 'POST':
         username = request.form.get('username')
@@ -84,68 +98,35 @@ def register():
         phone_number = request.form.get('phone_number')
         address = request.form.get('address')
         department = request.form.get('department')
-
-        # Validate required fields
-        if not all([username, email, password, full_name, phone_number, address, department]):
-            flash('All fields are required', 'error')
+        
+        if User.query.filter_by(username=username).first():
+            flash('Username already exists')
             return redirect(url_for('register'))
         
-        try:
-            # Check if username exists
-            if User.query.filter_by(username=username).first():
-                flash('Username already exists', 'error')
-                return redirect(url_for('register'))
-            
-            # Check if email exists
-            if User.query.filter_by(email=email).first():
-                flash('Email already registered', 'error')
-                return redirect(url_for('register'))
-            
-            # Create new user
-            hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
-            new_user = User(
-                username=username,
-                email=email,
-                password_hash=hashed_password,
-                full_name=full_name,
-                phone_number=phone_number,
-                address=address,
-                department=department,
-                role='borrower'
-            )
-            
-            db.session.add(new_user)
-            db.session.commit()
-            
-            flash('Registration successful! Please login.', 'success')
-            return redirect(url_for('login'))
-            
-        except Exception as e:
-            db.session.rollback()
-            app.logger.error(f"Registration error: {str(e)}")
-            flash('Registration failed. Please try again.', 'error')
+        if User.query.filter_by(email=email).first():
+            flash('Email already registered')
+            return redirect(url_for('register'))
+        
+        user = User(
+            username=username,
+            email=email,
+            password_hash=generate_password_hash(password),
+            full_name=full_name,
+            phone_number=phone_number,
+            address=address,
+            department=department,
+            role='borrower'
+        )
+        
+        db.session.add(user)
+        db.session.commit()
+        
+        flash('Registration successful! Please login.')
+        return redirect(url_for('login'))
     
     return render_template('auth/register.html')
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
-    
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        user = User.query.filter_by(username=username).first()
-        
-        if user and check_password_hash(user.password_hash, password):
-            login_user(user)
-            return redirect(url_for('dashboard'))
-        else:
-            flash('Invalid username or password', 'error')
-    
-    return render_template('auth/login.html')
-
-@app.route('/logout', methods=['POST'])
+@app.route('/logout')
 @login_required
 def logout():
     logout_user()
@@ -164,6 +145,16 @@ def customer_portal():
     if current_user.role != 'borrower':
         return redirect(url_for('dashboard'))
     
+    # Get user's loans
+    loans = Loan.query.filter_by(user_id=current_user.id).all()
+    
+    # Get user's documents
+    documents = Document.query.join(Loan).filter(
+        Loan.user_id == current_user.id
+    ).order_by(Document.uploaded_at.desc()).limit(5).all()
+    
+    return render_template('customer/portal.html', loans=loans, documents=documents)
+
 @app.route('/apply-loan')
 @login_required
 def apply_loan():
@@ -179,12 +170,32 @@ def view_loan_details(loan_id):
     loan = Loan.query.filter_by(id=loan_id, user_id=current_user.id).first_or_404()
     return render_template('customer/loan_details.html', loan=loan)
 
-@app.route('/upload-document')
+@app.route('/upload-document', methods=['GET', 'POST'])
 @login_required
 def upload_document():
     if current_user.role != 'borrower':
         return redirect(url_for('dashboard'))
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            flash('No file part')
+            return redirect(request.url)
+        file = request.files['file']
+        if file.filename == '':
+            flash('No selected file')
+            return redirect(request.url)
+        if file:
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
+            loan_id = request.form.get('loan_id')
+            document_type = request.form.get('document_type')
+            new_document = Document(loan_id=loan_id, document_type=document_type, file_path=file_path)
+            db.session.add(new_document)
+            db.session.commit()
+            flash('File uploaded successfully')
+            return redirect(url_for('customer_portal'))
     return render_template('customer/document_upload.html')
+
 
 @app.route('/view-document/<int:document_id>')
 @login_required
@@ -196,13 +207,6 @@ def view_document(document_id):
         Loan.user_id == current_user.id
     ).first_or_404()
     return render_template('customer/view_document.html', document=document)
-    # Get user's loans
-    loans = Loan.query.filter_by(user_id=current_user.id).all()
-    
-    # Get user's documents
-    documents = Document.query.join(Loan).filter(Loan.user_id == current_user.id).order_by(Document.uploaded_at.desc()).limit(5).all()
-    
-    return render_template('customer/portal.html', loans=loans, documents=documents)
 
 if __name__ == '__main__':
     with app.app_context():
