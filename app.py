@@ -568,7 +568,7 @@ def apply_loan():
             flash('Error submitting loan application. Please try again.', 'error')
             return redirect(url_for('apply_loan'))
 
-    return render_template('customer/loan_application.html')
+    return render_template('customer/loan_application.html', prefill_data=prefill_data)
 
 @app.route('/view-loan/<int:loan_id>')
 @login_required
