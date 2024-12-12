@@ -4,6 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
+from flask_migrate import Migrate
 import os
 
 app = Flask(__name__)
@@ -30,16 +31,17 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    client_number = db.Column(db.String(10), unique=True, nullable=False)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
-    full_name = db.Column(db.String(200), nullable=True)
     phone_number = db.Column(db.String(20), nullable=True)
     address = db.Column(db.String(200), nullable=True)
     department = db.Column(db.String(50), nullable=True)
@@ -48,6 +50,15 @@ class User(UserMixin, db.Model):
     role = db.Column(db.String(20), nullable=False, default='borrower')
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     loans = db.relationship('Loan', backref='user', lazy=True)
+
+    @staticmethod
+    def generate_client_number():
+        """Generate the next client number in sequence KNRFS00001"""
+        last_user = User.query.order_by(User.client_number.desc()).first()
+        if not last_user:
+            return 'KNRFS00001'
+        last_number = int(last_user.client_number[5:])
+        return f'KNRFS{str(last_number + 1).zfill(5)}'
 
 class PersonalDetails(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -382,7 +393,8 @@ def register():
             username=username,
             email=email,
             password_hash=generate_password_hash(password),
-            role='borrower'
+            role='borrower',
+            client_number=User.generate_client_number()
         )
         
         db.session.add(user)
@@ -411,10 +423,10 @@ def create_user_from_application(personal_details):
         username=username,
         email=email,
         password_hash=generate_password_hash('password1234'),
-        full_name=personal_details.name,
         phone_number=personal_details.mobile_number,
         role='borrower',
-        is_application_created=True
+        is_application_created=True,
+        client_number=User.generate_client_number()
     )
     
     db.session.add(user)
