@@ -34,20 +34,13 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128))
-    role = db.Column(db.String(20), nullable=False, default='borrower')
     full_name = db.Column(db.String(200), nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    loans = db.relationship('Loan', backref='user', lazy=True)
-
-class Borrower(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     phone_number = db.Column(db.String(20), nullable=False)
     address = db.Column(db.String(200), nullable=False)
-    employment_status = db.Column(db.String(50), nullable=False)
-    monthly_income = db.Column(db.Float, nullable=False)
+    department = db.Column(db.String(50), nullable=False)
+    role = db.Column(db.String(20), nullable=False, default='borrower')
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    user = db.relationship('User', backref='borrower_profile', uselist=False)
+    loans = db.relationship('Loan', backref='user', lazy=True)
 
 class Loan(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -207,21 +200,13 @@ def register():
                 username=username,
                 email=email,
                 password_hash=generate_password_hash(password),
-                role='borrower',
-                full_name=full_name
-            )
-            db.session.add(user)
-            db.session.flush()  # Get the user ID
-            
-            # Create borrower profile
-            borrower = Borrower(
-                user_id=user.id,
+                full_name=full_name,
                 phone_number=phone_number,
                 address=address,
-                employment_status=employment_status,
-                monthly_income=float(monthly_income)
+                department=request.form.get('department'),
+                role='borrower'
             )
-            db.session.add(borrower)
+            db.session.add(user)
             db.session.commit()
             
             flash('Registration successful! Please login.', 'success')
