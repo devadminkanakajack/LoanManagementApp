@@ -347,6 +347,62 @@ def apply_loan():
             )
             db.session.add(employment)
 
+            # Residential Address
+            residential = ResidentialAddress(
+                loan_application_id=application.id,
+                lot=request.form['lot'],
+                section=request.form['section'],
+                suburb=request.form['suburb'],
+                street_name=request.form['street_name'],
+                marital_status=request.form['marital_status'],
+                spouse_last_name=request.form.get('spouse_last_name'),
+                spouse_first_name=request.form.get('spouse_first_name'),
+                spouse_employer_name=request.form.get('spouse_employer_name'),
+                spouse_contact=request.form.get('spouse_contact')
+            )
+            db.session.add(residential)
+
+            # Loan Product
+            product = LoanProduct(
+                loan_application_id=application.id,
+                product_type=request.form['product_type'],
+                description=request.form.get('product_description')
+            )
+            db.session.add(product)
+
+            # Financial Details
+            financial = FinancialDetails(
+                loan_application_id=application.id,
+                loan_amount=float(request.form['loan_amount']),
+                fortnightly_repayment=float(request.form['fortnightly_repayment']),
+                number_of_fortnights=int(request.form['number_of_fortnights']),
+                total_loan_repayable=float(request.form['total_loan_repayable']),
+                gross_salary=float(request.form['gross_salary']),
+                net_salary=float(request.form['net_salary'])
+            )
+            db.session.add(financial)
+
+            # Loan Funding Details
+            funding = LoanFundingDetails(
+                loan_application_id=application.id,
+                bank=request.form['bank'],
+                branch=request.form['branch'],
+                bsb_code=request.form['bsb_code'],
+                account_name=request.form['account_name'],
+                account_number=request.form['account_number'],
+                account_type=request.form['account_type']
+            )
+            db.session.add(funding)
+
+            # Loan Break-Up
+            breakup = LoanBreakUp(
+                loan_application_id=application.id,
+                loan_amount=float(request.form['breakup_loan_amount']),
+                existing_loan=float(request.form['existing_loan']),
+                net_loan_amount=float(request.form['net_loan_amount'])
+            )
+            db.session.add(breakup)
+
             # Process and save documents
             document_types = {
                 'payslip_1': 'payslip',
