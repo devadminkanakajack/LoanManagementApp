@@ -47,11 +47,8 @@
                         </div>
                         <div class="flex items-center">
                             {% if current_user.is_authenticated %}
-                            <a href="{{ url_for('settings') }}" class="ml-4 text-gray-600 hover:text-gray-800">
-                                Settings
-                            </a>
-                            <a href="{{ url_for('help') }}" class="ml-4 text-gray-600 hover:text-gray-800">
-                                Help
+                            <a href="{{ url_for('logout') }}" class="ml-4 text-gray-600 hover:text-gray-800">
+                                Logout
                             </a>
                             <form action="{{ url_for('logout') }}" method="post" class="ml-4">
                                 <button type="submit" class="text-gray-600 hover:text-gray-800">Logout</button>
