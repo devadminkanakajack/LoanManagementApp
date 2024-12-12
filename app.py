@@ -17,6 +17,12 @@ if database_url.startswith("postgres://"):
 
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# File upload configuration
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
@@ -75,7 +81,78 @@ def dashboard():
 def customer_portal():
     if current_user.role != 'borrower':
         return redirect(url_for('dashboard'))
-    return render_template('customer_portal.html')
+    documents = Document.query.filter_by(user_id=current_user.id).all()
+    return render_template('customer/document_upload.html', documents=documents)
+
+@app.route('/upload-document', methods=['POST'])
+@login_required
+def upload_document():
+    if 'document' not in request.files:
+        flash('No file selected', 'error')
+        return redirect(url_for('customer_portal'))
+    
+    file = request.files['document']
+    if file.filename == '':
+        flash('No file selected', 'error')
+        return redirect(url_for('customer_portal'))
+    
+    if file and allowed_file(file.filename):
+        try:
+            # Save the file
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
+            
+            # Create document record
+            document = Document(
+                filename=filename,
+                document_type=request.form.get('document_type'),
+                user_id=current_user.id,
+                ocr_status='pending'
+            )
+            db.session.add(document)
+            db.session.commit()
+            
+            # Process OCR in background (for demo, we'll do it synchronously)
+            process_document_ocr(document.id, file_path)
+            
+            flash('Document uploaded successfully', 'success')
+        except Exception as e:
+            app.logger.error(f"Error uploading document: {str(e)}")
+            flash('Error uploading document', 'error')
+    else:
+        flash('Invalid file type', 'error')
+    
+    return redirect(url_for('customer_portal'))
+
+def allowed_file(filename):
+    ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def process_document_ocr(document_id, file_path):
+    try:
+        # Perform OCR using pytesseract
+        from PIL import Image
+        import pytesseract
+        
+        # For PDFs, we'd need to convert pages to images first
+        # For this example, we'll handle only images
+        if file_path.lower().endswith(('.png', '.jpg', '.jpeg')):
+            image = Image.open(file_path)
+            text = pytesseract.image_to_string(image)
+            
+            # Update document with OCR results
+            document = Document.query.get(document_id)
+            if document:
+                document.ocr_status = 'completed'
+                document.ocr_result = {'text': text}
+                db.session.commit()
+    except Exception as e:
+        app.logger.error(f"OCR processing error: {str(e)}")
+        document = Document.query.get(document_id)
+        if document:
+            document.ocr_status = 'failed'
+            db.session.commit()
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
