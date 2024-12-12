@@ -3,37 +3,59 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="max-w-4xl mx-auto">
-        <h1 class="text-3xl font-bold mb-8">Upload Loan Application Document</h1>
+        <h1 class="text-3xl font-bold mb-8">Apply for a Loan</h1>
         
         <div class="bg-white p-6 rounded-lg shadow-md">
             <form method="POST" enctype="multipart/form-data" class="space-y-6">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">Upload Application Document</label>
-                    <p class="text-sm text-gray-500 mb-2">Upload a scanned copy or photo of your filled loan application form. We'll extract the information automatically.</p>
-                    <input type="file" name="application_document" accept=".pdf,.jpg,.jpeg,.png" required 
-                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    <h2 class="text-xl font-semibold mb-4">Required Documents</h2>
+                    
+                    <!-- Loan Application Document -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700">1. Loan Application Form</label>
+                        <p class="text-sm text-gray-500 mb-2">Upload your completed loan application form. We'll automatically process the information.</p>
+                        <input type="file" name="application_document" accept=".pdf,.jpg,.jpeg,.png" required 
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+
+                    <!-- Terms and Conditions -->
+                    <div class="mt-6 p-4 bg-gray-50 rounded-md">
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">Terms and Conditions</h3>
+                        <div class="text-sm text-gray-600 space-y-2">
+                            <p>By uploading your loan application, you agree to:</p>
+                            <ul class="list-disc list-inside">
+                                <li>The accuracy of all information provided in the application</li>
+                                <li>Allow us to verify the information with relevant authorities</li>
+                                <li>Consent to our processing of your personal information</li>
+                                <li>Accept our loan terms and conditions</li>
+                            </ul>
+                        </div>
+                        <div class="mt-4">
+                            <label class="flex items-center">
+                                <input type="checkbox" required class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                                <span class="ml-2 text-sm text-gray-600">I have read and agree to the terms and conditions</span>
+                            </label>
+                        </div>
+                    </div>
                 </div>
                 
-                <div class="flex justify-end space-x-4">
-                    <a href="{{ url_for('apply_loan') }}" 
-                       class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
-                        Skip Upload
-                    </a>
+                <div class="flex justify-end">
                     <button type="submit" 
                             class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                        Upload and Extract Data
+                        Continue to Upload Supporting Documents
                     </button>
                 </div>
             </form>
         </div>
         
         <div class="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <h2 class="text-lg font-semibold text-blue-800 mb-2">How it works</h2>
+            <h2 class="text-lg font-semibold text-blue-800 mb-2">Application Process</h2>
             <ul class="list-disc list-inside space-y-2 text-blue-700">
-                <li>Upload a clear scan or photo of your filled loan application form</li>
-                <li>Our system will automatically extract information from the document</li>
-                <li>The application form will be pre-filled with the extracted data</li>
-                <li>You can review and edit any information before final submission</li>
+                <li>Upload your completed loan application form</li>
+                <li>Our system will automatically extract and verify the information</li>
+                <li>Upload additional required supporting documents</li>
+                <li>Review your application before final submission</li>
+                <li>Track your application status in your dashboard</li>
             </ul>
         </div>
     </div>
