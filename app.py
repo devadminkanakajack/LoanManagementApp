@@ -557,7 +557,6 @@ def customer_portal():
 
 @app.route('/upload-application', methods=['GET', 'POST'])
 def upload_application():
-        
     if request.method == 'POST':
         if 'application_document' not in request.files:
             flash('No file uploaded', 'error')
@@ -567,42 +566,104 @@ def upload_application():
         if file.filename == '':
             flash('No selected file', 'error')
             return redirect(request.url)
-            
-        if file:
+        
+        # Ensure the file is a valid type
+        allowed_extensions = {'.pdf', '.png', '.jpg', '.jpeg'}
+        if not any(file.filename.lower().endswith(ext) for ext in allowed_extensions):
+            flash('Invalid file type. Please upload PDF or image files.', 'error')
+            return redirect(request.url)
+        
+        try:
+            # Generate unique filename and save file
             filename = secure_filename(file.filename)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = f"{timestamp}_{filename}"
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             
-            # Ensure the file is a valid type
-            allowed_extensions = {'.pdf', '.png', '.jpg', '.jpeg'}
-            if not any(filename.lower().endswith(ext) for ext in allowed_extensions):
-                flash('Invalid file type. Please upload PDF or image files.', 'error')
+            print(f"Saving file: {filename}")
+            file.save(file_path)
+            
+            # Create document record
+            document = Document(
+                document_type='loan_application',
+                file_path=file_path
+            )
+            
+            db.session.add(document)
+            db.session.flush()
+            
+            print("Starting OCR processing...")
+            document.process_ocr()
+            print(f"OCR Status: {document.ocr_status}")
+            
+            if document.ocr_status == 'failed':
+                flash('Error processing document. Please try again.', 'error')
                 return redirect(request.url)
             
-            try:
-                file.save(file_path)
-                document = Document(
-                    document_type='loan_application',
-                    file_path=file_path
+            if document.ocr_status == 'completed' and document.extracted_data:
+                # Create new loan application
+                user_id = current_user.id if current_user.is_authenticated else None
+                application = LoanApplication(
+                    user_id=user_id,
+                    status='pending'
                 )
-                
-                db.session.add(document)
+                db.session.add(application)
                 db.session.flush()
                 
-                # Process OCR immediately
-                document.process_ocr()
+                # Link document to application
+                document.application_id = application.id
                 
-                if document.ocr_status == 'completed' and document.extracted_data:
-                    # Create new loan application with extracted data
-                    application = LoanApplication(user_id=current_user.id)
-                    db.session.add(application)
-                    db.session.flush()
-                    
-                    # Create personal details
-                    if any(key in document.extracted_data for key in ['name', 'date_of_birth', 'gender', 'mobile_number']):
+                try:
+                    # Create personal details if available
+                    if any(key in document.extracted_data for key in ['surname', 'given_name', 'date_of_birth']):
                         personal = PersonalDetails(
                             loan_application_id=application.id,
                             surname=document.extracted_data.get('surname', ''),
                             given_name=document.extracted_data.get('given_name', ''),
+                            date_of_birth=datetime.strptime(document.extracted_data.get('date_of_birth', '2000-01-01'), '%d/%m/%Y').date(),
+                            gender=document.extracted_data.get('gender', 'M')[0].upper(),
+                            mobile_number=document.extracted_data.get('mobile_number', ''),
+                            email=document.extracted_data.get('email', ''),
+                            village=document.extracted_data.get('village', ''),
+                            district=document.extracted_data.get('district', ''),
+                            province=document.extracted_data.get('province', ''),
+                            nationality=document.extracted_data.get('nationality', '')
+                        )
+                        db.session.add(personal)
+                    
+                    # Create employment details if available
+                    if any(key in document.extracted_data for key in ['company_department', 'position', 'file_number']):
+                        employment = EmploymentDetails(
+                            loan_application_id=application.id,
+                            company_department=document.extracted_data.get('company_department', ''),
+                            file_number=document.extracted_data.get('file_number', ''),
+                            position=document.extracted_data.get('position', ''),
+                            postal_address=document.extracted_data.get('postal_address', ''),
+                            phone=document.extracted_data.get('phone', ''),
+                            date_employed=datetime.strptime(document.extracted_data.get('date_employed', '2000-01-01'), '%d/%m/%Y').date(),
+                            paymaster=document.extracted_data.get('paymaster', '')
+                        )
+                        db.session.add(employment)
+                    
+                    db.session.commit()
+                    flash('Application submitted successfully! Please check your email for further instructions.', 'success')
+                    return redirect(url_for('index'))
+                    
+                except Exception as e:
+                    db.session.rollback()
+                    print(f"Error saving application details: {str(e)}")
+                    flash('Error saving application details. Please try again.', 'error')
+                    return redirect(request.url)
+            else:
+                flash('Could not extract data from document. Please try again.', 'error')
+                return redirect(request.url)
+                
+        except Exception as e:
+            print(f"Error processing file: {str(e)}")
+            flash('Error processing file. Please try again.', 'error')
+            return redirect(request.url)
+    
+    return render_template('customer/upload_application.html')
                             date_of_birth=datetime.strptime(document.extracted_data.get('date_of_birth', '2000-01-01'), '%d/%m/%Y').date(),
                             gender=document.extracted_data.get('gender', 'M')[0].upper(),
                             mobile_number=document.extracted_data.get('mobile_number', ''),
