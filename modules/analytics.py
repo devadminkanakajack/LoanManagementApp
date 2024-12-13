@@ -1,9 +1,10 @@
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, current_app
 from flask_login import login_required
 from db import db
-from sqlalchemy import func
+from sqlalchemy import func, text
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+from models import Loan, Borrower, RepaymentRecord, Document
 
 bp = Blueprint('analytics', __name__, url_prefix='/analytics')
 
@@ -12,9 +13,9 @@ bp = Blueprint('analytics', __name__, url_prefix='/analytics')
 def index():
     try:
         # Loan statistics
-        total_loans = db.session.query(func.count('*')).select_from('loans').scalar() or 0
-        active_loans = db.session.query(func.count('*')).select_from('loans').filter_by(status='approved').scalar() or 0
-        total_amount = db.session.query(func.sum('amount')).select_from('loans').filter_by(status='approved').scalar() or 0
+        total_loans = Loan.query.count()
+        active_loans = Loan.query.filter_by(status='approved').count()
+        total_amount = db.session.query(func.sum(Loan.amount)).filter_by(status='approved').scalar() or 0
         avg_amount = total_amount / active_loans if active_loans > 0 else 0
         
         # Monthly loan trends (last 6 months)
@@ -24,10 +25,8 @@ def index():
             start_date = datetime.utcnow().replace(day=1) - relativedelta(months=i)
             end_date = (start_date + relativedelta(months=1)).replace(hour=23, minute=59, second=59)
             
-            month_amount = db.session.query(func.sum('amount'))\
-                .select_from('loans')\
-                .filter(db.text("created_at BETWEEN :start AND :end"))\
-                .params(start=start_date, end=end_date)\
+            month_amount = db.session.query(func.sum(Loan.amount))\
+                .filter(Loan.created_at.between(start_date, end_date))\
                 .scalar() or 0
                 
             months.append(start_date.strftime('%B'))
@@ -37,23 +36,15 @@ def index():
         loan_types = ['School Fees', 'Medical', 'Vacation', 'Funeral', 'Customary']
         loan_type_distribution = []
         for loan_type in loan_types:
-            count = db.session.query(func.count('*'))\
-                .select_from('loans')\
-                .filter(db.text("purpose ILIKE :type"))\
-                .params(type=f"%{loan_type.lower()}%")\
-                .scalar() or 0
+            count = Loan.query.filter(
+                Loan.purpose.ilike(f"%{loan_type.lower()}%")
+            ).count()
             loan_type_distribution.append(count)
             
         # Repayment statistics
-        total_repayments = db.session.query(func.count('*')).select_from('repayment_records').scalar() or 0
-        ontime_payments = db.session.query(func.count('*'))\
-            .select_from('repayment_records')\
-            .filter_by(is_late_payment=False)\
-            .scalar() or 0
-        late_payments = db.session.query(func.count('*'))\
-            .select_from('repayment_records')\
-            .filter_by(is_late_payment=True)\
-            .scalar() or 0
+        total_repayments = RepaymentRecord.query.count()
+        ontime_payments = RepaymentRecord.query.filter_by(is_late_payment=False).count()
+        late_payments = RepaymentRecord.query.filter_by(is_late_payment=True).count()
             
         stats = {
             'active_loans': active_loans,
@@ -97,13 +88,13 @@ def loan_performance():
     try:
         # Get loan performance metrics
         performance_stats = db.session.query(
-            func.count('*').label('total_loans'),
-            func.sum(db.case(
-                [(db.text("status = 'defaulted'"), 1)],
+            func.count(Loan.id).label('total_loans'),
+            func.sum(case(
+                [(Loan.status == 'defaulted', 1)],
                 else_=0
             )).label('defaulted_loans'),
-            func.avg('amount').label('avg_loan_amount')
-        ).select_from('loans').first()
+            func.avg(Loan.amount).label('avg_loan_amount')
+        ).select_from(Loan).first()
         
         return render_template(
             'analytics/loan_performance.html',

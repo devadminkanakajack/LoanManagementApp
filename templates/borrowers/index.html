@@ -8,15 +8,14 @@
             <h1 class="text-3xl font-bold">Borrowers</h1>
             <p class="text-gray-600">View and manage borrower information</p>
         </div>
-        <div class="flex gap-4">
-            <a href="{{ url_for('borrowers.add_borrower') }}" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90">
-                Add Borrower
-            </a>
-            <form action="{{ url_for('borrowers.bulk_upload_borrowers') }}" method="post" enctype="multipart/form-data" class="flex items-center gap-2">
-                <input type="file" name="file" accept=".csv" class="hidden" id="csv-upload">
-                <label for="csv-upload" class="bg-secondary text-white px-4 py-2 rounded-lg hover:bg-secondary/90 cursor-pointer">
-                    Upload CSV
-                </label>
+        <div class="space-y-2">
+            <ul class="list-disc pl-5">
+                <li><a href="{{ url_for('borrowers.view_borrowers') }}" class="text-blue-600 hover:text-blue-800">View Borrowers</a></li>
+                <li><a href="{{ url_for('borrowers.add_borrower') }}" class="text-blue-600 hover:text-blue-800">Add Borrower</a></li>
+                <li><a href="#" onclick="document.getElementById('csv-upload').click(); return false;" class="text-blue-600 hover:text-blue-800">Bulk Upload Borrowers</a></li>
+            </ul>
+            <form action="{{ url_for('borrowers.bulk_upload_borrowers') }}" method="post" enctype="multipart/form-data" class="hidden">
+                <input type="file" name="file" accept=".csv" id="csv-upload" onchange="this.form.submit()">
             </form>
         </div>
     </div>
@@ -26,68 +25,48 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <!-- Personal Details -->
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Personal Details
                         </th>
-                        <!-- Employment Details -->
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Employment Details
                         </th>
-                        <!-- Residential Address -->
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Residential Address
                         </th>
-                        <!-- Bank Details -->
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Bank Details
+                            Loan Funding Details
                         </th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     {% for borrower in borrowers %}
                     <tr>
-                        <!-- Personal Details -->
                         <td class="px-6 py-4">
-                            <div class="text-sm font-medium text-gray-900">
-                                {{ borrower.full_name }}
-                            </div>
-                            <div class="text-sm text-gray-500">
-                                Born: {{ borrower.date_of_birth.strftime('%Y-%m-%d') if borrower.date_of_birth }}
-                            </div>
-                            <div class="text-sm text-gray-500">
-                                Gender: {{ borrower.gender }}
-                            </div>
-                            <div class="text-sm text-gray-500">
-                                Phone: {{ borrower.phone }}
-                            </div>
-                            <div class="text-sm text-gray-500">
-                                Email: {{ borrower.email }}
-                            </div>
+                            <div class="text-sm font-medium text-gray-900">{{ borrower.full_name }}</div>
+                            <div class="text-sm text-gray-500">Date of Birth: {{ borrower.date_of_birth.strftime('%Y-%m-%d') if borrower.date_of_birth }}</div>
+                            <div class="text-sm text-gray-500">Gender: {{ borrower.gender }}</div>
+                            <div class="text-sm text-gray-500">Marital Status: {{ borrower.marital_status }}</div>
+                            <div class="text-sm text-gray-500">Email: {{ borrower.email }}</div>
+                            <div class="text-sm text-gray-500">Phone: {{ borrower.phone }}</div>
                         </td>
-                        <!-- Employment Details -->
                         <td class="px-6 py-4">
                             <div class="text-sm text-gray-900">{{ borrower.employer_name }}</div>
                             <div class="text-sm text-gray-500">Position: {{ borrower.position }}</div>
                             <div class="text-sm text-gray-500">Department: {{ borrower.department }}</div>
-                            <div class="text-sm text-gray-500">Address: {{ borrower.employer_address }}</div>
+                            <div class="text-sm text-gray-500">Duration: {{ borrower.employment_duration }} months</div>
+                            <div class="text-sm text-gray-500">Status: {{ borrower.employment_status }}</div>
                         </td>
-                        <!-- Residential Address -->
                         <td class="px-6 py-4">
                             <div class="text-sm text-gray-900">{{ borrower.address }}</div>
-                            <div class="text-sm text-gray-500">{{ borrower.city }}</div>
-                            <div class="text-sm text-gray-500">{{ borrower.state }}</div>
-                            <div class="text-sm text-gray-500">
-                                Status: {{ borrower.marital_status }}
-                            </div>
+                            <div class="text-sm text-gray-500">City: {{ borrower.city }}</div>
+                            <div class="text-sm text-gray-500">State: {{ borrower.state }}</div>
+                            <div class="text-sm text-gray-500">Postal Code: {{ borrower.postal_code }}</div>
                         </td>
-                        <!-- Bank Details -->
                         <td class="px-6 py-4">
                             <div class="text-sm text-gray-900">{{ borrower.bank_name }}</div>
-                            <div class="text-sm text-gray-500">Branch: {{ borrower.bank_branch }}</div>
                             <div class="text-sm text-gray-500">BSB: {{ borrower.bsb_code }}</div>
-                            <div class="text-sm text-gray-500">Account: {{ borrower.account_name }}</div>
-                            <div class="text-sm text-gray-500">A/C #: {{ borrower.account_number }}</div>
+                            <div class="text-sm text-gray-500">Account: {{ borrower.account_number }}</div>
                             <div class="text-sm text-gray-500">Type: {{ borrower.account_type }}</div>
                         </td>
                     </tr>
