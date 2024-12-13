@@ -1,6 +1,7 @@
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import func
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -375,7 +376,32 @@ def logout():
 def dashboard():
     if current_user.role == 'borrower':
         return redirect(url_for('customer_portal'))
-    return render_template('dashboard.html')
+    
+    # Get loan statistics
+    stats = {
+        'active_loans': Loan.query.filter_by(status='approved').count(),
+        'total_disbursed': db.session.query(func.sum(Loan.amount)).filter_by(status='approved').scalar() or 0,
+        'pending_applications': LoanApplication.query.filter_by(status='pending').count()
+    }
+    
+    # Get loan distribution data
+    loan_types = ['School Fees', 'Medical', 'Vacation', 'Funeral', 'Customary']
+    loan_distribution = []
+    for loan_type in loan_types:
+        count = LoanProduct.query.filter(LoanProduct.primary_purpose == loan_type.lower()).count()
+        loan_distribution.append(count)
+    
+    # Get recent applications
+    recent_applications = LoanApplication.query\
+        .order_by(LoanApplication.created_at.desc())\
+        .limit(5)\
+        .all()
+    
+    return render_template('admin/dashboard.html',
+                         stats=stats,
+                         loan_types=loan_types,
+                         loan_distribution=loan_distribution,
+                         recent_applications=recent_applications)
 
 @app.route('/customer-portal')
 @login_required
@@ -401,6 +427,7 @@ def application_status():
     
     return render_template('customer/application_status.html', applications=applications)
 @app.route('/document-upload', methods=['GET', 'POST'])
+@login_required
 def upload_documents():
     documents = Document.query.filter_by(user_id=current_user.id).all()
     if request.method == 'POST':
@@ -570,7 +597,7 @@ def upload_application():
                             login_user(user)
                         
                         flash('Application submitted successfully! Please upload your supporting documents.', 'success')
-                        return redirect(url_for('upload_documents'))
+                        return redirect(url_for('upload_documents'))  # This should now work with login_required
                         
                     except Exception as e:
                         db.session.rollback()

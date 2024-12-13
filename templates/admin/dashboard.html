@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Loan Statistics Card -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-4">Loan Statistics</h2>
+            <div class="space-y-4">
+                <div>
+                    <p class="text-gray-600">Total Active Loans</p>
+                    <p class="text-2xl font-bold">{{ stats.active_loans }}</p>
+                </div>
+                <div>
+                    <p class="text-gray-600">Total Amount Disbursed</p>
+                    <p class="text-2xl font-bold">${{ "%.2f"|format(stats.total_disbursed) }}</p>
+                </div>
+                <div>
+                    <p class="text-gray-600">Pending Applications</p>
+                    <p class="text-2xl font-bold">{{ stats.pending_applications }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loan Distribution Chart -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-4">Loan Distribution</h2>
+            <canvas id="loanDistributionChart" width="400" height="300"></canvas>
+        </div>
+
+        <!-- Recent Applications -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-4">Recent Applications</h2>
+            <div class="space-y-4">
+                {% for application in recent_applications %}
+                <div class="border-b pb-2">
+                    <p class="font-medium">{{ application.user.username }}</p>
+                    <p class="text-sm text-gray-600">Amount: ${{ "%.2f"|format(application.financial_details.loan_amount) }}</p>
+                    <p class="text-sm text-gray-600">Status: 
+                        <span class="px-2 py-1 rounded-full text-xs
+                            {% if application.status == 'approved' %}bg-green-100 text-green-800
+                            {% elif application.status == 'rejected' %}bg-red-100 text-red-800
+                            {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                            {{ application.status|title }}
+                        </span>
+                    </p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart initialization -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const ctx = document.getElementById('loanDistributionChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: {{ loan_types|tojson }},
+                    datasets: [{
+                        data: {{ loan_distribution|tojson }},
+                        backgroundColor: [
+                            '#4F46E5',
+                            '#10B981',
+                            '#F59E0B',
+                            '#EF4444',
+                            '#8B5CF6'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</div>
+{% endblock %}
