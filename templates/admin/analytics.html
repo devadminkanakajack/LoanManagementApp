@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}Analytics Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold">Analytics Dashboard</h1>
+        <p class="text-gray-600">Advanced metrics and reporting for loan performance</p>
+    </div>
+
+    <!-- Analytics Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <!-- Loan Performance Card -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-4">Loan Performance</h2>
+            <div class="space-y-4">
+                <div>
+                    <p class="text-gray-600">Total Active Loans</p>
+                    <p class="text-2xl font-bold">{{ stats.active_loans }}</p>
+                </div>
+                <div>
+                    <p class="text-gray-600">Average Loan Amount</p>
+                    <p class="text-2xl font-bold">${{ "%.2f"|format(stats.avg_loan_amount|default(0)) }}</p>
+                </div>
+                <div>
+                    <p class="text-gray-600">Total Portfolio Value</p>
+                    <p class="text-2xl font-bold">${{ "%.2f"|format(stats.total_portfolio|default(0)) }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Monthly Trends -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-4">Monthly Trends</h2>
+            <canvas id="monthlyTrendsChart" width="400" height="300"></canvas>
+        </div>
+
+        <!-- Loan Type Distribution -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-4">Loan Type Distribution</h2>
+            <canvas id="loanTypeChart" width="400" height="300"></canvas>
+        </div>
+    </div>
+
+    <!-- Detailed Analytics Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Application Success Rate -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-4">Application Success Rate</h2>
+            <div class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Approved</span>
+                    <span class="font-bold">{{ "%.1f"|format(stats.approval_rate|default(0)) }}%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div class="bg-green-600 h-2.5 rounded-full" style="width: {{ stats.approval_rate|default(0) }}%"></div>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Rejected</span>
+                    <span class="font-bold">{{ "%.1f"|format(stats.rejection_rate|default(0)) }}%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div class="bg-red-600 h-2.5 rounded-full" style="width: {{ stats.rejection_rate|default(0) }}%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Processing Times -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-4">Processing Times</h2>
+            <canvas id="processingTimesChart" width="400" height="300"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Initialize Charts -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Monthly Trends Chart
+    const monthlyCtx = document.getElementById('monthlyTrendsChart').getContext('2d');
+    new Chart(monthlyCtx, {
+        type: 'line',
+        data: {
+            labels: {{ monthly_labels|tojson|safe }},
+            datasets: [{
+                label: 'Loan Amount',
+                data: {{ monthly_amounts|tojson|safe }},
+                borderColor: '#4F46E5',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Loan Type Distribution Chart
+    const typeCtx = document.getElementById('loanTypeChart').getContext('2d');
+    new Chart(typeCtx, {
+        type: 'doughnut',
+        data: {
+            labels: {{ loan_types|tojson|safe }},
+            datasets: [{
+                data: {{ loan_type_distribution|tojson|safe }},
+                backgroundColor: [
+                    '#4F46E5',
+                    '#10B981',
+                    '#F59E0B',
+                    '#EF4444',
+                    '#8B5CF6'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Processing Times Chart
+    const procCtx = document.getElementById('processingTimesChart').getContext('2d');
+    new Chart(procCtx, {
+        type: 'bar',
+        data: {
+            labels: ['< 24h', '1-2 days', '2-3 days', '3-5 days', '> 5 days'],
+            datasets: [{
+                label: 'Applications',
+                data: {{ processing_times|tojson|safe }},
+                backgroundColor: '#4F46E5'
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

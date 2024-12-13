@@ -1,4 +1,5 @@
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
@@ -446,45 +447,86 @@ def admin_analytics():
     if current_user.role != 'admin':
         flash('Access denied. Admin privileges required.', 'error')
         return redirect(url_for('index'))
-    return render_template('admin/analytics.html')
     
     try:
-        # Get loan statistics
+        # Basic statistics
+        total_loans = Loan.query.count()
+        active_loans = Loan.query.filter_by(status='approved').count()
+        total_amount = db.session.query(func.sum(Loan.amount)).filter_by(status='approved').scalar() or 0
+        avg_amount = total_amount / active_loans if active_loans > 0 else 0
+        
+        approved_count = LoanApplication.query.filter_by(status='approved').count()
+        rejected_count = LoanApplication.query.filter_by(status='rejected').count()
+        total_applications = approved_count + rejected_count
+        
         stats = {
-            'active_loans': Loan.query.filter_by(status='approved').count(),
-            'total_disbursed': float(db.session.query(func.sum(Loan.amount)).filter_by(status='approved').scalar() or 0),
-            'pending_applications': LoanApplication.query.filter_by(status='pending').count()
+            'active_loans': active_loans,
+            'avg_loan_amount': float(avg_amount),
+            'total_portfolio': float(total_amount),
+            'approval_rate': (approved_count / total_applications * 100) if total_applications > 0 else 0,
+            'rejection_rate': (rejected_count / total_applications * 100) if total_applications > 0 else 0
         }
         
-        # Get loan distribution data
+        # Monthly trends (last 6 months)
+        months = []
+        amounts = []
+        for i in range(5, -1, -1):
+            start_date = datetime.utcnow().replace(day=1) - relativedelta(months=i)
+            end_date = (start_date + relativedelta(months=1)).replace(hour=23, minute=59, second=59)
+            
+            month_amount = db.session.query(func.sum(Loan.amount))\
+                .filter(Loan.created_at.between(start_date, end_date))\
+                .scalar() or 0
+                
+            months.append(start_date.strftime('%B'))
+            amounts.append(float(month_amount))
+        
+        # Loan type distribution
         loan_types = ['School Fees', 'Medical', 'Vacation', 'Funeral', 'Customary']
-        loan_distribution = []
+        loan_type_distribution = []
         for loan_type in loan_types:
-            count = LoanProduct.query.filter(
-                LoanProduct.primary_purpose == loan_type.lower().replace(' ', '_')
+            count = Loan.query.filter(
+                Loan.purpose.ilike(f"%{loan_type.lower()}%")
             ).count()
-            loan_distribution.append(count)
+            loan_type_distribution.append(count)
         
-        # Get recent applications with user info
-        recent_applications = LoanApplication.query\
-            .join(User)\
-            .order_by(LoanApplication.created_at.desc())\
-            .limit(5)\
-            .all()
+        # Processing times distribution
+        processing_times = []
+        for days in [1, 2, 3, 5, float('inf')]:
+            count = LoanApplication.query\
+                .filter(
+                    func.extract('epoch', func.current_timestamp() - LoanApplication.created_at) / 86400 <= days
+                ).count()
+            processing_times.append(count)
         
-        return render_template('admin/dashboard.html',
-                             stats=stats,
-                             loan_types=loan_types,
-                             loan_distribution=loan_distribution,
-                             recent_applications=recent_applications)
+        return render_template(
+            'admin/analytics.html',
+            stats=stats,
+            monthly_labels=months,
+            monthly_amounts=amounts,
+            loan_types=loan_types,
+            loan_type_distribution=loan_type_distribution,
+            processing_times=processing_times
+        )
+        
     except Exception as e:
-        print(f"Dashboard error: {str(e)}")
-        flash('Error loading dashboard data', 'error')
-        return render_template('admin/dashboard.html',
-                             stats={'active_loans': 0, 'total_disbursed': 0, 'pending_applications': 0},
-                             loan_types=[],
-                             loan_distribution=[],
-                             recent_applications=[])
+        print(f"Analytics error: {str(e)}")
+        flash('Error loading analytics data', 'error')
+        return render_template(
+            'admin/analytics.html',
+            stats={
+                'active_loans': 0,
+                'avg_loan_amount': 0,
+                'total_portfolio': 0,
+                'approval_rate': 0,
+                'rejection_rate': 0
+            },
+            monthly_labels=[],
+            monthly_amounts=[],
+            loan_types=[],
+            loan_type_distribution=[],
+            processing_times=[]
+        )
 
 @app.route('/customer-portal')
 @login_required
