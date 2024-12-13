@@ -476,11 +476,11 @@ def upload_application():
             file.save(file_path)
             
             document = Document(
-                user_id=current_user.id,
+                user_id=current_user.id if current_user.is_authenticated else None,
                 document_type='loan_application',
                 file_name=filename,
                 file_path=file_path,
-                file_url=file_path,
+                file_url=url_for('static', filename=f'uploads/{filename}', _external=True),
                 ocr_status='pending',
                 uploaded_at=datetime.utcnow()
             )
