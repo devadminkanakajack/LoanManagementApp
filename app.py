@@ -210,7 +210,8 @@ class Document(db.Model):
     loan_id = db.Column(db.Integer, db.ForeignKey('loan.id'), nullable=True)
     application_id = db.Column(db.Integer, db.ForeignKey('loan_application.id'), nullable=True)
     document_type = db.Column(db.String(50), nullable=False)  # payslip, employment_confirmation, data_entry, variation_advice, identification
-    file_path = db.Column(db.String(200), nullable=False)
+    file_name = db.Column(db.String(255), nullable=False)  # Original filename
+    file_path = db.Column(db.String(200), nullable=False)  # Full path to stored file
     uploaded_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     ocr_status = db.Column(db.String(20), nullable=False, default='pending')
     ocr_text = db.Column(db.Text)
@@ -425,7 +426,10 @@ def upload_application():
             
             document = Document(
                 document_type='loan_application',
-                file_path=file_path
+                file_name=filename,
+                file_path=file_path,
+                ocr_status='pending',
+                uploaded_at=datetime.utcnow()
             )
             
             db.session.add(document)
