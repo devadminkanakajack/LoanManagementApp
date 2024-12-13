@@ -107,6 +107,7 @@ class PersonalDetails(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     loan_application_id = db.Column(db.Integer, db.ForeignKey('loan_application.id'), nullable=False)
     surname = db.Column(db.String(100), nullable=False)
+    given_surname = db.Column(db.String(100), nullable=False)
     given_name = db.Column(db.String(100), nullable=False)
     date_of_birth = db.Column(db.Date, nullable=False)
     gender = db.Column(db.String(1), nullable=False)
@@ -590,7 +591,8 @@ def upload_application():
                     if any(key in document.extracted_data for key in ['name', 'date_of_birth', 'gender', 'mobile_number']):
                         personal = PersonalDetails(
                             loan_application_id=application.id,
-                            name=document.extracted_data.get('name', ''),
+                            surname=document.extracted_data.get('surname', ''),
+                            given_name=document.extracted_data.get('given_name', ''),
                             date_of_birth=datetime.strptime(document.extracted_data.get('date_of_birth', '2000-01-01'), '%d/%m/%Y').date(),
                             gender=document.extracted_data.get('gender', 'M')[0].upper(),
                             mobile_number=document.extracted_data.get('mobile_number', ''),
