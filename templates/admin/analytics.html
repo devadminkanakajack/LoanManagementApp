@@ -29,46 +29,88 @@
             </div>
         </div>
 
+        <!-- OCR Processing Statistics -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-4">Document Processing</h2>
+            <div class="space-y-4">
+                <div>
+                    <p class="text-gray-600">Documents Processed</p>
+                    <p class="text-2xl font-bold">{{ stats.documents_processed|default(0) }}</p>
+                </div>
+                <div>
+                    <p class="text-gray-600">Average OCR Confidence</p>
+                    <p class="text-2xl font-bold">{{ "%.1f"|format(stats.avg_ocr_confidence|default(0)) }}%</p>
+                </div>
+                <div>
+                    <p class="text-gray-600">Processing Success Rate</p>
+                    <p class="text-2xl font-bold">{{ "%.1f"|format(stats.ocr_success_rate|default(0)) }}%</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Repayment Overview -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-4">Repayment Overview</h2>
+            <div class="space-y-4">
+                <div>
+                    <p class="text-gray-600">Total Repayments Made</p>
+                    <p class="text-2xl font-bold">{{ stats.total_repayments|default(0) }}</p>
+                </div>
+                <div>
+                    <p class="text-gray-600">On-time Payment Rate</p>
+                    <p class="text-2xl font-bold">{{ "%.1f"|format(stats.ontime_payment_rate|default(0)) }}%</p>
+                </div>
+                <div>
+                    <p class="text-gray-600">Late Payment Rate</p>
+                    <p class="text-2xl font-bold">{{ "%.1f"|format(stats.late_payment_rate|default(0)) }}%</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Monthly Trends -->
         <div class="bg-white p-6 rounded-lg shadow-md">
-            <h2 class="text-xl font-semibold mb-4">Monthly Trends</h2>
-            <canvas id="monthlyTrendsChart" width="400" height="300"></canvas>
+            <h2 class="text-xl font-semibold mb-4">Monthly Loan Trends</h2>
+            <canvas id="monthlyTrendsChart"></canvas>
         </div>
 
         <!-- Loan Type Distribution -->
         <div class="bg-white p-6 rounded-lg shadow-md">
             <h2 class="text-xl font-semibold mb-4">Loan Type Distribution</h2>
-            <canvas id="loanTypeChart" width="400" height="300"></canvas>
+            <canvas id="loanTypeChart"></canvas>
         </div>
     </div>
 
-    <!-- Detailed Analytics Section -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Application Success Rate -->
-        <div class="bg-white p-6 rounded-lg shadow-md">
-            <h2 class="text-xl font-semibold mb-4">Application Success Rate</h2>
-            <div class="space-y-4">
-                <div class="flex justify-between items-center">
-                    <span class="text-gray-600">Approved</span>
-                    <span class="font-bold">{{ "%.1f"|format(stats.approval_rate|default(0)) }}%</span>
-                </div>
-                <div class="w-full bg-gray-200 rounded-full h-2.5">
-                    <div class="bg-green-600 h-2.5 rounded-full" style="width: {{ stats.approval_rate|default(0) }}%"></div>
-                </div>
-                <div class="flex justify-between items-center">
-                    <span class="text-gray-600">Rejected</span>
-                    <span class="font-bold">{{ "%.1f"|format(stats.rejection_rate|default(0)) }}%</span>
-                </div>
-                <div class="w-full bg-gray-200 rounded-full h-2.5">
-                    <div class="bg-red-600 h-2.5 rounded-full" style="width: {{ stats.rejection_rate|default(0) }}%"></div>
+    <!-- OCR Analysis Section -->
+    <div class="mt-8 bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-xl font-semibold mb-4">Document Processing Analysis</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <h3 class="text-lg font-medium mb-2">Processing Success Rate</h3>
+                <div class="relative pt-1">
+                    <div class="flex mb-2 items-center justify-between">
+                        <div>
+                            <span class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-green-600 bg-green-200">
+                                Success Rate
+                            </span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs font-semibold inline-block text-green-600">
+                                {{ "%.1f"|format(stats.ocr_success_rate|default(0)) }}%
+                            </span>
+                        </div>
+                    </div>
+                    <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-green-200">
+                        <div style="width:{{ stats.ocr_success_rate|default(0) }}%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-green-500"></div>
+                    </div>
                 </div>
             </div>
-        </div>
-
-        <!-- Processing Times -->
-        <div class="bg-white p-6 rounded-lg shadow-md">
-            <h2 class="text-xl font-semibold mb-4">Processing Times</h2>
-            <canvas id="processingTimesChart" width="400" height="300"></canvas>
+            <div>
+                <h3 class="text-lg font-medium mb-2">Average Processing Time</h3>
+                <canvas id="processingTimeChart"></canvas>
+            </div>
         </div>
     </div>
 </div>
@@ -77,8 +119,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Monthly Trends Chart
-    const monthlyCtx = document.getElementById('monthlyTrendsChart').getContext('2d');
-    new Chart(monthlyCtx, {
+    new Chart(document.getElementById('monthlyTrendsChart').getContext('2d'), {
         type: 'line',
         data: {
             labels: {{ monthly_labels|tojson|safe }},
@@ -100,8 +141,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Loan Type Distribution Chart
-    const typeCtx = document.getElementById('loanTypeChart').getContext('2d');
-    new Chart(typeCtx, {
+    new Chart(document.getElementById('loanTypeChart').getContext('2d'), {
         type: 'doughnut',
         data: {
             labels: {{ loan_types|tojson|safe }},
@@ -126,15 +166,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Processing Times Chart
-    const procCtx = document.getElementById('processingTimesChart').getContext('2d');
-    new Chart(procCtx, {
+    // Processing Time Chart
+    new Chart(document.getElementById('processingTimeChart').getContext('2d'), {
         type: 'bar',
         data: {
-            labels: ['< 24h', '1-2 days', '2-3 days', '3-5 days', '> 5 days'],
+            labels: ['<1s', '1-2s', '2-5s', '5-10s', '>10s'],
             datasets: [{
-                label: 'Applications',
-                data: {{ processing_times|tojson|safe }},
+                label: 'Number of Documents',
+                data: {{ processing_time_distribution|tojson|safe }},
                 backgroundColor: '#4F46E5'
             }]
         },

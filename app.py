@@ -99,7 +99,7 @@ class User(UserMixin, db.Model):
     
     # Relationships
     loans = db.relationship('Loan', back_populates='user', lazy=True)
-    borrower_details = db.relationship('BorrowerDetails', back_populates='user', uselist=False)
+    borrower_details = db.relationship('BorrowerDetails', back_populates='user', uselist=False, cascade='all, delete-orphan')
     documents = db.relationship('Document', back_populates='user', lazy=True)
     applications = db.relationship('LoanApplication', back_populates='user', lazy=True)
 
@@ -198,6 +198,9 @@ class LoanFundingDetails(db.Model):
     account_name = db.Column(db.String(200), nullable=False)
     account_number = db.Column(db.String(50), nullable=False)
     account_type = db.Column(db.String(20), nullable=False)  # savings/cheque
+    
+    # Relationship
+    application = db.relationship('LoanApplication', back_populates='funding_details')
 
 class LoanBreakUp(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -205,6 +208,9 @@ class LoanBreakUp(db.Model):
     loan_amount = db.Column(db.Numeric(10, 2), nullable=False)
     existing_loan = db.Column(db.Numeric(10, 2), nullable=False, default=0)
     net_loan_amount = db.Column(db.Numeric(10, 2), nullable=False)
+    
+    # Relationship
+    application = db.relationship('LoanApplication', back_populates='break_up')
 
 class LoanApplication(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -215,6 +221,10 @@ class LoanApplication(db.Model):
     
     # Relationships
     user = db.relationship('User', back_populates='applications')
+    borrower_details = db.relationship('BorrowerDetails',
+                                     primaryjoin="LoanApplication.user_id==BorrowerDetails.user_id",
+                                     foreign_keys="BorrowerDetails.user_id",
+                                     lazy=True)
     personal_details = db.relationship('PersonalDetails', back_populates='application', uselist=False)
     employment_details = db.relationship('EmploymentDetails', back_populates='application', uselist=False)
     residential_address = db.relationship('ResidentialAddress', back_populates='application', uselist=False)
@@ -226,8 +236,9 @@ class LoanApplication(db.Model):
     loan = db.relationship('Loan', back_populates='application', uselist=False)
 
 class BorrowerDetails(db.Model):
+    __tablename__ = 'borrower_details'
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True)
     marital_status = db.Column(db.String(20))
     dependents = db.Column(db.Integer)
     education = db.Column(db.String(50))
@@ -257,11 +268,15 @@ class BorrowerDetails(db.Model):
     ocr_confidence_score = db.Column(db.Float)
     last_ocr_update = db.Column(db.DateTime)
     
-    # Relationship
+    # Relationships
     user = db.relationship('User', back_populates='borrower_details')
-    loan_applications = db.relationship('LoanApplication', backref='borrower_details', lazy=True)
+    loans = db.relationship('Loan', back_populates='borrower', lazy='dynamic', cascade='all, delete-orphan')
+    
+    def __repr__(self):
+        return f'<BorrowerDetails {self.user.username}>'
 
 class LoanDetails(db.Model):
+    __tablename__ = 'loan_details'
     id = db.Column(db.Integer, primary_key=True)
     loan_id = db.Column(db.Integer, db.ForeignKey('loan.id'), nullable=False)
     loan_type = db.Column(db.String(50), nullable=False)
@@ -280,6 +295,9 @@ class LoanDetails(db.Model):
     income_proof = db.Column(db.JSON)
     expense_details = db.Column(db.JSON)
     collateral_details = db.Column(db.JSON)
+    
+    # Relationship with Loan
+    loan = db.relationship('Loan', back_populates='loan_details', uselist=False)
 
 class RepaymentRecord(db.Model):
     __tablename__ = 'repayment_record'
@@ -302,30 +320,53 @@ class RepaymentRecord(db.Model):
     is_late_payment = db.Column(db.Boolean, default=False)
     original_due_date = db.Column(db.DateTime)
     
+    # OCR data fields
+    ocr_verified = db.Column(db.Boolean, default=False)
+    ocr_confidence_score = db.Column(db.Float)
+    receipt_image_path = db.Column(db.String(255))
+    
     # Relationship
-    loan = db.relationship('Loan', back_populates='repayments')
+    loan = db.relationship('Loan', back_populates='repayments', overlaps="repayments")
     
     def __init__(self, *args, **kwargs):
         super(RepaymentRecord, self).__init__(*args, **kwargs)
         if self.amount_paid and self.late_fee:
             self.total_paid = self.amount_paid + self.late_fee
+            
+    def __repr__(self):
+        return f'<RepaymentRecord {self.id} - Amount: {self.amount_paid} - Status: {self.payment_status}>'
 class Loan(db.Model):
     __tablename__ = 'loan'
     id = db.Column(db.Integer, primary_key=True)
     application_id = db.Column(db.Integer, db.ForeignKey('loan_application.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    borrower_id = db.Column(db.Integer, db.ForeignKey('borrower_details.id'), nullable=False)
     amount = db.Column(db.Numeric(10, 2), nullable=False)
     term = db.Column(db.Integer, nullable=False)  # in fortnights
     status = db.Column(db.String(20), nullable=False, default='pending')
     purpose = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     
+    # OCR extracted financial data
+    annual_income = db.Column(db.Numeric(12, 2))
+    monthly_expenses = db.Column(db.Numeric(10, 2))
+    credit_score = db.Column(db.Integer)
+    ocr_confidence_score = db.Column(db.Float)
+    last_ocr_update = db.Column(db.DateTime)
+    
     # Relationships
     user = db.relationship('User', back_populates='loans')
+    borrower = db.relationship('BorrowerDetails', back_populates='loans')
     documents = db.relationship('Document', back_populates='loan', lazy=True)
-    loan_details = db.relationship('LoanDetails', back_populates='loan', uselist=False)
-    repayments = db.relationship('RepaymentRecord', back_populates='loan', lazy=True)
-    application = db.relationship('LoanApplication', back_populates='loan')
+    loan_details = db.relationship('LoanDetails', back_populates='loan', uselist=False, cascade='all, delete-orphan')
+    repayments = db.relationship('RepaymentRecord', back_populates='loan', lazy=True, cascade='all, delete-orphan')
+    application = db.relationship('LoanApplication', back_populates='loan', single_parent=True)
+    
+    def __repr__(self):
+        return f'<Loan {self.id} - Amount: {self.amount} - Status: {self.status}>'
+    
+    def __repr__(self):
+        return f'<Loan {self.id} - {self.amount}>'
 
 class Document(db.Model):
     __tablename__ = 'documents'
@@ -583,22 +624,33 @@ def admin_analytics():
         return redirect(url_for('index'))
     
     try:
-        # Basic statistics
+        # Basic loan statistics
         total_loans = Loan.query.count()
         active_loans = Loan.query.filter_by(status='approved').count()
         total_amount = db.session.query(func.sum(Loan.amount)).filter_by(status='approved').scalar() or 0
         avg_amount = total_amount / active_loans if active_loans > 0 else 0
         
-        approved_count = LoanApplication.query.filter_by(status='approved').count()
-        rejected_count = LoanApplication.query.filter_by(status='rejected').count()
-        total_applications = approved_count + rejected_count
+        # OCR processing statistics
+        documents = Document.query.all()
+        successful_ocr = Document.query.filter_by(ocr_status='completed').count()
+        total_documents = len(documents)
+        avg_ocr_confidence = db.session.query(func.avg(Document.ocr_confidence_score)).scalar() or 0
+        
+        # Repayment statistics
+        total_repayments = RepaymentRecord.query.count()
+        ontime_payments = RepaymentRecord.query.filter_by(is_late_payment=False).count()
+        late_payments = RepaymentRecord.query.filter_by(is_late_payment=True).count()
         
         stats = {
             'active_loans': active_loans,
             'avg_loan_amount': float(avg_amount),
             'total_portfolio': float(total_amount),
-            'approval_rate': (approved_count / total_applications * 100) if total_applications > 0 else 0,
-            'rejection_rate': (rejected_count / total_applications * 100) if total_applications > 0 else 0
+            'documents_processed': total_documents,
+            'avg_ocr_confidence': float(avg_ocr_confidence * 100),
+            'ocr_success_rate': (successful_ocr / total_documents * 100) if total_documents > 0 else 0,
+            'total_repayments': total_repayments,
+            'ontime_payment_rate': (ontime_payments / total_repayments * 100) if total_repayments > 0 else 0,
+            'late_payment_rate': (late_payments / total_repayments * 100) if total_repayments > 0 else 0
         }
         
         # Monthly trends (last 6 months)
@@ -624,14 +676,21 @@ def admin_analytics():
             ).count()
             loan_type_distribution.append(count)
         
-        # Processing times distribution
-        processing_times = []
-        for days in [1, 2, 3, 5, float('inf')]:
-            count = LoanApplication.query\
-                .filter(
-                    func.extract('epoch', func.current_timestamp() - LoanApplication.created_at) / 86400 <= days
-                ).count()
-            processing_times.append(count)
+        # Document processing time distribution
+        processing_times = [0, 0, 0, 0, 0]  # <1s, 1-2s, 2-5s, 5-10s, >10s
+        for doc in documents:
+            if doc.ocr_status == 'completed':
+                processing_time = (doc.uploaded_at - doc.created_at).total_seconds()
+                if processing_time < 1:
+                    processing_times[0] += 1
+                elif processing_time < 2:
+                    processing_times[1] += 1
+                elif processing_time < 5:
+                    processing_times[2] += 1
+                elif processing_time < 10:
+                    processing_times[3] += 1
+                else:
+                    processing_times[4] += 1
         
         return render_template(
             'admin/analytics.html',
@@ -640,7 +699,7 @@ def admin_analytics():
             monthly_amounts=amounts,
             loan_types=loan_types,
             loan_type_distribution=loan_type_distribution,
-            processing_times=processing_times
+            processing_time_distribution=processing_times
         )
         
     except Exception as e:
@@ -652,14 +711,18 @@ def admin_analytics():
                 'active_loans': 0,
                 'avg_loan_amount': 0,
                 'total_portfolio': 0,
-                'approval_rate': 0,
-                'rejection_rate': 0
+                'documents_processed': 0,
+                'avg_ocr_confidence': 0,
+                'ocr_success_rate': 0,
+                'total_repayments': 0,
+                'ontime_payment_rate': 0,
+                'late_payment_rate': 0
             },
             monthly_labels=[],
             monthly_amounts=[],
             loan_types=[],
             loan_type_distribution=[],
-            processing_times=[]
+            processing_time_distribution=[0, 0, 0, 0, 0]
         )
 
 @app.route('/customer-portal')
