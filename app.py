@@ -106,7 +106,8 @@ class User(UserMixin, db.Model):
 class PersonalDetails(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     loan_application_id = db.Column(db.Integer, db.ForeignKey('loan_application.id'), nullable=False)
-    name = db.Column(db.String(200), nullable=False)
+    surname = db.Column(db.String(100), nullable=False)
+    given_name = db.Column(db.String(100), nullable=False)
     date_of_birth = db.Column(db.Date, nullable=False)
     gender = db.Column(db.String(1), nullable=False)
     mobile_number = db.Column(db.String(20), nullable=False)
@@ -143,7 +144,8 @@ class ResidentialAddress(db.Model):
 class LoanProduct(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     loan_application_id = db.Column(db.Integer, db.ForeignKey('loan_application.id'), nullable=False)
-    product_type = db.Column(db.String(50), nullable=False)  # school_fees, medical, vacation, funeral, customary, others
+    purposes = db.Column(db.JSON, nullable=False)  # Array of selected purposes: ['school_fees', 'medical', etc]
+    primary_purpose = db.Column(db.String(50), nullable=False)  # Main purpose
     description = db.Column(db.Text)
 
 class FinancialDetails(db.Model):
@@ -231,7 +233,8 @@ class Document(db.Model):
                 if self.document_type == 'loan_application':
                     # Personal Details patterns
                     patterns = {
-                        'name': r'Name:?\s*([^\n]+)',
+                        'surname': r'Surname:?\s*([^\n]+)',
+                        'given_name': r'Given\s+Name:?\s*([^\n]+)',
                         'date_of_birth': r'Date\s+of\s+Birth:?\s*(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})',
                         'gender': r'Gender:?\s*([MF]|Male|Female)',
                         'mobile_number': r'Mobile(?:\s+Number)?:?\s*([\d\s\-+]+)',
@@ -269,9 +272,14 @@ class Document(db.Model):
                         'gross_salary': r'Gross\s+Salary:?\s*\$?\s*([\d,]+\.?\d*)',
                         'net_salary': r'Net\s+Salary:?\s*\$?\s*([\d,]+\.?\d*)',
                         
-                        # Loan Product
-                        'product_type': r'Product\s+Type:?\s*(School\s+Fees|Medical|Vacation|Funeral|Customary|Others)',
-                        'product_description': r'Product\s+Description:?\s*([^\n]+)',
+                        # Loan Purposes (Checkbox based)
+                        'school_fees': r'☒\s*School\s+Fees',
+                        'medical': r'☒\s*Medical',
+                        'vacation': r'☒\s*Vacation',
+                        'funeral': r'☒\s*Funeral',
+                        'customary': r'☒\s*Customary',
+                        'others': r'☒\s*Others',
+                        'product_description': r'Purpose\s+Description:?\s*([^\n]+)',
                         
                         # Bank Details
                         'bank': r'Bank:?\s*([^\n]+)',
@@ -624,11 +632,18 @@ def upload_application():
                         )
                         db.session.add(residential)
                     
-                    # Create loan product
-                    if any(key in document.extracted_data for key in ['product_type']):
+                    # Create loan product with checkbox-based purposes
+                    purposes = []
+                    purpose_fields = ['school_fees', 'medical', 'vacation', 'funeral', 'customary', 'others']
+                    for field in purpose_fields:
+                        if document.extracted_data.get(field):
+                            purposes.append(field)
+                    
+                    if purposes:
                         product = LoanProduct(
                             loan_application_id=application.id,
-                            product_type=document.extracted_data.get('product_type', 'others').lower(),
+                            purposes=purposes,
+                            primary_purpose=purposes[0] if purposes else 'others',
                             description=document.extracted_data.get('product_description', '')
                         )
                         db.session.add(product)
