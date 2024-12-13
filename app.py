@@ -401,7 +401,6 @@ def application_status():
     
     return render_template('customer/application_status.html', applications=applications)
 @app.route('/document-upload', methods=['GET', 'POST'])
-@login_required
 def upload_documents():
     documents = Document.query.filter_by(user_id=current_user.id).all()
     if request.method == 'POST':
@@ -538,7 +537,39 @@ def upload_application():
                             db.session.add(employment)
                         
                         db.session.commit()
-                        flash('Application submitted successfully! Please upload your documents.', 'success')
+                        
+                        # Create user account if not authenticated
+                        if not current_user.is_authenticated:
+                            # Generate a username from email or use a timestamp
+                            email = document.extracted_data.get('email', '')
+                            username = email.split('@')[0] if email else f'user_{int(datetime.now().timestamp())}'
+                            
+                            # Create new user
+                            user = User(
+                                username=username,
+                                email=email,
+                                password_hash=generate_password_hash('password1234'),  # Temporary password
+                                role='borrower',
+                                client_number=User.generate_client_number(),
+                                is_application_created=True
+                            )
+                            db.session.add(user)
+                            db.session.commit()
+                            
+                            # Update document with user_id
+                            document.user_id = user.id
+                            db.session.commit()
+                            
+                            # Send registration email
+                            try:
+                                send_registration_email(email, username, is_application=True)
+                            except Exception as e:
+                                print(f"Failed to send registration email: {str(e)}")
+                            
+                            # Log in the user
+                            login_user(user)
+                        
+                        flash('Application submitted successfully! Please upload your supporting documents.', 'success')
                         return redirect(url_for('upload_documents'))
                         
                     except Exception as e:
