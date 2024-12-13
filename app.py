@@ -86,7 +86,8 @@ class User(UserMixin, db.Model):
     client_number = db.Column(db.String(10), unique=True, nullable=False)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
+    full_name = db.Column(db.String(200), nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
     phone_number = db.Column(db.String(20), nullable=True)
     address = db.Column(db.String(200), nullable=True)
     department = db.Column(db.String(50), nullable=True)
@@ -100,10 +101,13 @@ class User(UserMixin, db.Model):
     def generate_client_number():
         """Generate the next client number in sequence KNRFS00001"""
         last_user = User.query.order_by(User.client_number.desc()).first()
-        if not last_user:
+        if not last_user or not last_user.client_number:
             return 'KNRFS00001'
-        last_number = int(last_user.client_number[5:])
-        return f'KNRFS{str(last_number + 1).zfill(5)}'
+        try:
+            last_number = int(last_user.client_number[5:])
+            return f'KNRFS{str(last_number + 1).zfill(5)}'
+        except (ValueError, IndexError):
+            return 'KNRFS00001'
 
 class PersonalDetails(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -630,4 +634,32 @@ def upload_application():
     return render_template('customer/upload_application.html')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    print("Initializing application...")
+    with app.app_context():
+        try:
+            print("Creating database tables...")
+            db.create_all()
+            
+            print("Checking for admin user...")
+            admin = User.query.filter_by(username='DevAdmin').first()
+            if not admin:
+                print("Creating admin user...")
+                admin = User(
+                    username='DevAdmin',
+                    email='admin@knrfinancial.com',
+                    full_name='System Administrator',
+                    password_hash=generate_password_hash('password1234'),
+                    role='admin',
+                    client_number=User.generate_client_number()
+                )
+                db.session.add(admin)
+                db.session.commit()
+                print("Admin user created successfully")
+            else:
+                print("Admin user already exists")
+            
+            print("Starting Flask application...")
+            app.run(host='0.0.0.0', port=5000, debug=True)
+        except Exception as e:
+            print(f"Error during initialization: {str(e)}")
+            raise
