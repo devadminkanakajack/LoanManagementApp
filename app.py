@@ -382,6 +382,45 @@ def admin_dashboard():
     if current_user.role != 'admin':
         flash('Access denied. Admin privileges required.', 'error')
         return redirect(url_for('index'))
+    
+    try:
+        # Get loan statistics
+        stats = {
+            'active_loans': Loan.query.filter_by(status='approved').count(),
+            'total_disbursed': float(db.session.query(func.sum(Loan.amount)).filter_by(status='approved').scalar() or 0),
+            'pending_applications': LoanApplication.query.filter_by(status='pending').count()
+        }
+        
+        # Get loan distribution data
+        loan_types = ['School Fees', 'Medical', 'Vacation', 'Funeral', 'Customary']
+        loan_distribution = []
+        for loan_type in loan_types:
+            count = LoanProduct.query.filter(
+                LoanProduct.primary_purpose == loan_type.lower().replace(' ', '_')
+            ).count()
+            loan_distribution.append(count)
+        
+        # Get recent applications with user info
+        recent_applications = LoanApplication.query\
+            .join(User)\
+            .order_by(LoanApplication.created_at.desc())\
+            .limit(5)\
+            .all()
+        
+        return render_template('admin/dashboard.html',
+                             stats=stats,
+                             loan_types=loan_types,
+                             loan_distribution=loan_distribution,
+                             recent_applications=recent_applications)
+                             
+    except Exception as e:
+        print(f"Dashboard error: {str(e)}")
+        flash('Error loading dashboard data', 'error')
+        return render_template('admin/dashboard.html',
+                             stats={'active_loans': 0, 'total_disbursed': 0, 'pending_applications': 0},
+                             loan_types=[],
+                             loan_distribution=[],
+                             recent_applications=[])
 
 @app.route('/admin/users')
 @login_required
