@@ -710,16 +710,14 @@ def upload_application():
     
     return render_template('customer/upload_application.html')
 
-@app.route('/apply-loan')
-@login_required
+@app.route('/apply-loan', methods=['GET', 'POST'])
 def apply_loan():
-    # Redirect all loan applications to the document upload route
-    return redirect(url_for('upload_application'))
-
     if request.method == 'POST':
         try:
             # Create new loan application
-            application = LoanApplication(user_id=current_user.id)
+            application = LoanApplication(
+                user_id=current_user.id if hasattr(current_user, 'id') else None
+            )
             db.session.add(application)
             db.session.flush()  # Get the application ID
 
