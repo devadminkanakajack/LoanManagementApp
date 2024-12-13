@@ -83,6 +83,39 @@
         </div>
     </div>
 
+    <!-- Enhanced Analytics Section -->
+    <div class="mt-8 bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-xl font-semibold mb-4">Advanced Analytics</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Borrower Demographics -->
+            <div>
+                <h3 class="text-lg font-medium mb-2">Borrower Demographics</h3>
+                <div class="space-y-4">
+                    <div>
+                        <p class="text-gray-600">Total Borrowers</p>
+                        <p class="text-2xl font-bold">{{ stats.total_borrowers }}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-600">Average Credit Score</p>
+                        <p class="text-2xl font-bold">{{ "%.0f"|format(stats.avg_credit_score) }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Employment Distribution -->
+            <div>
+                <h3 class="text-lg font-medium mb-2">Employment Types</h3>
+                <canvas id="employmentChart"></canvas>
+            </div>
+            
+            <!-- Document Processing Analysis -->
+            <div>
+                <h3 class="text-lg font-medium mb-2">OCR Performance</h3>
+                <canvas id="ocrPerformanceChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
     <!-- OCR Analysis Section -->
     <div class="mt-8 bg-white p-6 rounded-lg shadow-md">
         <h2 class="text-xl font-semibold mb-4">Document Processing Analysis</h2>

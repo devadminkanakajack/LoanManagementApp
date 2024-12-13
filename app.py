@@ -624,11 +624,19 @@ def admin_analytics():
         return redirect(url_for('index'))
     
     try:
-        # Basic loan statistics
+        # Enhanced loan statistics
         total_loans = Loan.query.count()
         active_loans = Loan.query.filter_by(status='approved').count()
         total_amount = db.session.query(func.sum(Loan.amount)).filter_by(status='approved').scalar() or 0
         avg_amount = total_amount / active_loans if active_loans > 0 else 0
+        
+        # Borrower demographics
+        total_borrowers = BorrowerDetails.query.count()
+        avg_credit_score = db.session.query(func.avg(BorrowerDetails.credit_score)).scalar() or 0
+        employment_types = db.session.query(
+            BorrowerDetails.employment_type,
+            func.count(BorrowerDetails.id)
+        ).group_by(BorrowerDetails.employment_type).all()
         
         # OCR processing statistics
         documents = Document.query.all()
