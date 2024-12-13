@@ -96,7 +96,12 @@ class User(UserMixin, db.Model):
     password_changed = db.Column(db.Boolean, default=False)
     role = db.Column(db.String(20), nullable=False, default='borrower')
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    loans = db.relationship('Loan', backref='user', lazy=True)
+    
+    # Relationships
+    loans = db.relationship('Loan', back_populates='user', lazy=True)
+    borrower_details = db.relationship('BorrowerDetails', back_populates='user', uselist=False)
+    documents = db.relationship('Document', back_populates='user', lazy=True)
+    applications = db.relationship('LoanApplication', back_populates='user', lazy=True)
 
     @staticmethod
     def generate_client_number():
@@ -113,6 +118,7 @@ class User(UserMixin, db.Model):
 class PersonalDetails(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     loan_application_id = db.Column(db.Integer, db.ForeignKey('loan_application.id'), nullable=False)
+    application = db.relationship('LoanApplication', back_populates='personal_details')
     surname = db.Column(db.String(100), nullable=False)
     given_name = db.Column(db.String(100), nullable=False)
     date_of_birth = db.Column(db.Date, nullable=False)
@@ -134,6 +140,9 @@ class EmploymentDetails(db.Model):
     phone = db.Column(db.String(20), nullable=False)
     date_employed = db.Column(db.Date, nullable=False)
     paymaster = db.Column(db.String(200), nullable=False)
+    
+    # Relationship
+    application = db.relationship('LoanApplication', back_populates='employment_details')
 
 class ResidentialAddress(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -147,6 +156,9 @@ class ResidentialAddress(db.Model):
     spouse_first_name = db.Column(db.String(100))
     spouse_employer_name = db.Column(db.String(200))
     spouse_contact = db.Column(db.String(20))
+    
+    # Relationship
+    application = db.relationship('LoanApplication', back_populates='residential_address')
 
 class LoanProduct(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -154,6 +166,9 @@ class LoanProduct(db.Model):
     purposes = db.Column(db.JSON, nullable=False)  # Array of selected purposes: ['school_fees', 'medical', etc]
     primary_purpose = db.Column(db.String(50), nullable=False)  # Main purpose
     description = db.Column(db.Text)
+    
+    # Relationship
+    application = db.relationship('LoanApplication', back_populates='loan_product')
 
 class FinancialDetails(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -164,6 +179,15 @@ class FinancialDetails(db.Model):
     total_loan_repayable = db.Column(db.Numeric(10, 2), nullable=False)
     gross_salary = db.Column(db.Numeric(10, 2), nullable=False)
     net_salary = db.Column(db.Numeric(10, 2), nullable=False)
+    
+    # OCR extracted financial data
+    annual_income = db.Column(db.Numeric(12, 2))
+    monthly_expenses = db.Column(db.Numeric(10, 2))
+    existing_loans = db.Column(db.Numeric(10, 2))
+    credit_score = db.Column(db.Integer)
+    
+    # Relationship
+    application = db.relationship('LoanApplication', back_populates='financial_details', uselist=False)
 
 class LoanFundingDetails(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -190,16 +214,103 @@ class LoanApplication(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     
     # Relationships
-    personal_details = db.relationship('PersonalDetails', backref='application', uselist=False)
-    employment_details = db.relationship('EmploymentDetails', backref='application', uselist=False)
-    residential_address = db.relationship('ResidentialAddress', backref='application', uselist=False)
-    loan_product = db.relationship('LoanProduct', backref='application', uselist=False)
-    financial_details = db.relationship('FinancialDetails', backref='application', uselist=False)
-    funding_details = db.relationship('LoanFundingDetails', backref='application', uselist=False)
-    break_up = db.relationship('LoanBreakUp', backref='application', uselist=False)
-    documents = db.relationship('Document', backref='application', lazy=True)
+    user = db.relationship('User', back_populates='applications')
+    personal_details = db.relationship('PersonalDetails', back_populates='application', uselist=False)
+    employment_details = db.relationship('EmploymentDetails', back_populates='application', uselist=False)
+    residential_address = db.relationship('ResidentialAddress', back_populates='application', uselist=False)
+    loan_product = db.relationship('LoanProduct', back_populates='application', uselist=False)
+    financial_details = db.relationship('FinancialDetails', back_populates='application', uselist=False)
+    funding_details = db.relationship('LoanFundingDetails', back_populates='application', uselist=False)
+    break_up = db.relationship('LoanBreakUp', back_populates='application', uselist=False)
+    documents = db.relationship('Document', back_populates='application', lazy=True)
+    loan = db.relationship('Loan', back_populates='application', uselist=False)
 
+class BorrowerDetails(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    marital_status = db.Column(db.String(20))
+    dependents = db.Column(db.Integer)
+    education = db.Column(db.String(50))
+    employment_type = db.Column(db.String(50))
+    income_source = db.Column(db.String(100))
+    monthly_income = db.Column(db.Numeric(10, 2))
+    other_income = db.Column(db.Numeric(10, 2))
+    existing_loans = db.Column(db.Boolean, default=False)
+    credit_score = db.Column(db.Integer)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # OCR extracted data
+    identification_number = db.Column(db.String(50))
+    tax_id = db.Column(db.String(50))
+    employer_name = db.Column(db.String(200))
+    employer_address = db.Column(db.String(300))
+    employment_duration = db.Column(db.Integer)  # in months
+    position = db.Column(db.String(100))
+    bank_name = db.Column(db.String(100))
+    bank_account_number = db.Column(db.String(50))
+    bank_bsb = db.Column(db.String(10))
+    reference_contact_1 = db.Column(db.String(100))
+    reference_phone_1 = db.Column(db.String(20))
+    reference_contact_2 = db.Column(db.String(100))
+    reference_phone_2 = db.Column(db.String(20))
+    ocr_confidence_score = db.Column(db.Float)
+    last_ocr_update = db.Column(db.DateTime)
+    
+    # Relationship
+    user = db.relationship('User', back_populates='borrower_details')
+    loan_applications = db.relationship('LoanApplication', backref='borrower_details', lazy=True)
+
+class LoanDetails(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    loan_id = db.Column(db.Integer, db.ForeignKey('loan.id'), nullable=False)
+    loan_type = db.Column(db.String(50), nullable=False)
+    interest_rate = db.Column(db.Numeric(5, 2), nullable=False)
+    processing_fee = db.Column(db.Numeric(10, 2))
+    insurance_fee = db.Column(db.Numeric(10, 2))
+    total_amount_payable = db.Column(db.Numeric(10, 2), nullable=False)
+    monthly_installment = db.Column(db.Numeric(10, 2), nullable=False)
+    start_date = db.Column(db.Date)
+    end_date = db.Column(db.Date)
+    disbursement_date = db.Column(db.DateTime)
+    disbursement_method = db.Column(db.String(50))
+    disbursement_status = db.Column(db.String(20), default='pending')
+    
+    # Financial details from OCR
+    income_proof = db.Column(db.JSON)
+    expense_details = db.Column(db.JSON)
+    collateral_details = db.Column(db.JSON)
+
+class RepaymentRecord(db.Model):
+    __tablename__ = 'repayment_record'
+    id = db.Column(db.Integer, primary_key=True)
+    loan_id = db.Column(db.Integer, db.ForeignKey('loan.id'), nullable=False)
+    amount_paid = db.Column(db.Numeric(10, 2), nullable=False)
+    payment_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    payment_method = db.Column(db.String(50))
+    transaction_id = db.Column(db.String(100))
+    payment_status = db.Column(db.String(20), default='completed')
+    receipt_number = db.Column(db.String(50))
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Additional repayment tracking fields
+    scheduled_amount = db.Column(db.Numeric(10, 2))
+    late_fee = db.Column(db.Numeric(10, 2), default=0)
+    total_paid = db.Column(db.Numeric(10, 2))  # amount_paid + late_fee
+    payment_period = db.Column(db.String(20))  # e.g., 'FN01', 'FN02' for fortnights
+    is_late_payment = db.Column(db.Boolean, default=False)
+    original_due_date = db.Column(db.DateTime)
+    
+    # Relationship
+    loan = db.relationship('Loan', back_populates='repayments')
+    
+    def __init__(self, *args, **kwargs):
+        super(RepaymentRecord, self).__init__(*args, **kwargs)
+        if self.amount_paid and self.late_fee:
+            self.total_paid = self.amount_paid + self.late_fee
 class Loan(db.Model):
+    __tablename__ = 'loan'
     id = db.Column(db.Integer, primary_key=True)
     application_id = db.Column(db.Integer, db.ForeignKey('loan_application.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -208,7 +319,13 @@ class Loan(db.Model):
     status = db.Column(db.String(20), nullable=False, default='pending')
     purpose = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    documents = db.relationship('Document', backref='loan', lazy=True)
+    
+    # Relationships
+    user = db.relationship('User', back_populates='loans')
+    documents = db.relationship('Document', back_populates='loan', lazy=True)
+    loan_details = db.relationship('LoanDetails', back_populates='loan', uselist=False)
+    repayments = db.relationship('RepaymentRecord', back_populates='loan', lazy=True)
+    application = db.relationship('LoanApplication', back_populates='loan')
 
 class Document(db.Model):
     __tablename__ = 'documents'
@@ -225,6 +342,11 @@ class Document(db.Model):
     ocr_text = db.Column(db.Text)
     extracted_data = db.Column(db.JSON)
 
+    # Relationships
+    user = db.relationship('User', back_populates='documents', lazy=True)
+    loan = db.relationship('Loan', back_populates='documents', lazy=True)
+    application = db.relationship('LoanApplication', back_populates='documents', lazy=True)
+
     def process_ocr(self):
         """Process OCR on the uploaded document and extract structured data"""
         try:
@@ -238,6 +360,18 @@ class Document(db.Model):
                 self.ocr_status = 'completed'
                 
                 extracted_data = {}
+                
+                # Enhanced pattern matching for borrower details
+                borrower_patterns = {
+                    'marital_status': r'Marital\s+Status:?\s*([^\n]+)',
+                    'dependents': r'(?:Number\s+of\s+)?Dependents:?\s*(\d+)',
+                    'education': r'Education(?:\s+Level)?:?\s*([^\n]+)',
+                    'employment_type': r'Employment\s+Type:?\s*([^\n]+)',
+                    'monthly_income': r'Monthly\s+Income:?\s*\$?\s*([\d,]+\.?\d*)',
+                    'other_income': r'Other\s+Income:?\s*\$?\s*([\d,]+\.?\d*)',
+                    'identification_number': r'(?:ID|Identification)\s+Number:?\s*([^\n]+)',
+                    'tax_id': r'Tax\s+(?:ID|Number):?\s*([^\n]+)'
+                }
                 
                 if self.document_type == 'loan_application':
                     # Define patterns for extracting information
