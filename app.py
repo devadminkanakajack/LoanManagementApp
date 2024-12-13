@@ -272,14 +272,14 @@ class Document(db.Model):
                         'gross_salary': r'Gross\s+Salary:?\s*\$?\s*([\d,]+\.?\d*)',
                         'net_salary': r'Net\s+Salary:?\s*\$?\s*([\d,]+\.?\d*)',
                         
-                        # Loan Purposes (Checkbox based)
-                        'school_fees': r'☒\s*School\s+Fees',
-                        'medical': r'☒\s*Medical',
-                        'vacation': r'☒\s*Vacation',
-                        'funeral': r'☒\s*Funeral',
-                        'customary': r'☒\s*Customary',
-                        'others': r'☒\s*Others',
-                        'product_description': r'Purpose\s+Description:?\s*([^\n]+)',
+                        # Loan Purposes (detecting marked/selected items)
+                        'school_fees': r'[\☒\✓\×\*]\s*School\s+Fees|School\s+Fees\s*[\☒\✓\×\*]',
+                        'medical': r'[\☒\✓\×\*]\s*Medical|Medical\s*[\☒\✓\×\*]',
+                        'vacation': r'[\☒\✓\×\*]\s*Vacation|Vacation\s*[\☒\✓\×\*]',
+                        'funeral': r'[\☒\✓\×\*]\s*Funeral|Funeral\s*[\☒\✓\×\*]',
+                        'customary': r'[\☒\✓\×\*]\s*Customary|Customary\s*[\☒\✓\×\*]',
+                        'others': r'[\☒\✓\×\*]\s*Others?|Others?\s*[\☒\✓\×\*]',
+                        'product_description': r'Purpose(?:\s+Description)?:?\s*([^\n]+)',
                         
                         # Bank Details
                         'bank': r'Bank:?\s*([^\n]+)',
@@ -632,19 +632,36 @@ def upload_application():
                         )
                         db.session.add(residential)
                     
-                    # Create loan product with checkbox-based purposes
+                    # Create loan product with extracted purposes
                     purposes = []
                     purpose_fields = ['school_fees', 'medical', 'vacation', 'funeral', 'customary', 'others']
+                    
+                    # Extract all marked purposes
                     for field in purpose_fields:
-                        if document.extracted_data.get(field):
+                        if field in document.extracted_data:
                             purposes.append(field)
                     
+                    # If no purposes were detected but we have a description, add as 'others'
+                    if not purposes and document.extracted_data.get('product_description'):
+                        purposes.append('others')
+                    
                     if purposes:
+                        # Determine primary purpose from the first detected purpose or from description
+                        primary_purpose = purposes[0]
+                        description = document.extracted_data.get('product_description', '').strip()
+                        
+                        # If description contains keywords, use it to validate/adjust primary purpose
+                        description_lower = description.lower()
+                        for purpose in purpose_fields:
+                            if purpose.replace('_', ' ') in description_lower:
+                                primary_purpose = purpose
+                                break
+                        
                         product = LoanProduct(
                             loan_application_id=application.id,
                             purposes=purposes,
-                            primary_purpose=purposes[0] if purposes else 'others',
-                            description=document.extracted_data.get('product_description', '')
+                            primary_purpose=primary_purpose,
+                            description=description
                         )
                         db.session.add(product)
                     
