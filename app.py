@@ -293,6 +293,7 @@ class Document(db.Model):
                     
                     # Extract all fields
                     extracted_data = {}
+                    print("\nStarting field extraction...")
                     for field, pattern in patterns.items():
                         match = re.search(pattern, self.ocr_text, re.IGNORECASE)
                         if match:
@@ -302,13 +303,25 @@ class Document(db.Model):
                                 try:
                                     value = float(value.replace(',', ''))
                                 except ValueError:
+                                    print(f"Failed to convert {field} to float: {value}")
                                     pass
                             elif field in ['number_of_fortnights']:
                                 try:
                                     value = int(value)
                                 except ValueError:
+                                    print(f"Failed to convert {field} to int: {value}")
                                     pass
                             extracted_data[field] = value
+                            print(f"Extracted {field}: {value}")
+                        else:
+                            print(f"No match found for {field}")
+                    
+                    # Print purpose detection results
+                    print("\nChecking loan purposes...")
+                    purpose_fields = ['school_fees', 'medical', 'vacation', 'funeral', 'customary', 'others']
+                    for purpose in purpose_fields:
+                        if purpose in extracted_data:
+                            print(f"Detected purpose: {purpose}")
                     
                     if name_match:
                         extracted_data['name'] = name_match.group(1).strip()
