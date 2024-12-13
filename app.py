@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from flask import Flask, render_template, request, redirect, url_for, flash
+from modules import analytics
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -49,6 +50,7 @@ app.config.update(
 
 # Import and initialize modules after db setup
 from modules import borrowers
+app.register_blueprint(analytics.bp)
 app.register_blueprint(borrowers.bp)
 
 def send_registration_email(user_email, username, is_application=False):

@@ -26,59 +26,69 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
+                        <!-- Personal Details -->
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Name
+                            Personal Details
                         </th>
+                        <!-- Employment Details -->
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Contact
+                            Employment Details
                         </th>
+                        <!-- Residential Address -->
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Employment
+                            Residential Address
                         </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Address
-                        </th>
+                        <!-- Bank Details -->
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Bank Details
-                        </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Actions
                         </th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     {% for borrower in borrowers %}
                     <tr>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <!-- Personal Details -->
+                        <td class="px-6 py-4">
                             <div class="text-sm font-medium text-gray-900">
-                                {{ borrower.surname }}, {{ borrower.given_name }}
+                                {{ borrower.full_name }}
                             </div>
                             <div class="text-sm text-gray-500">
-                                Born: {{ borrower.date_of_birth.strftime('%Y-%m-%d') }}
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm text-gray-900">{{ borrower.mobile_number }}</div>
-                            <div class="text-sm text-gray-500">{{ borrower.email }}</div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm text-gray-900">{{ borrower.position }}</div>
-                            <div class="text-sm text-gray-500">{{ borrower.company_department }}</div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm text-gray-900">
-                                Lot {{ borrower.lot }}, Section {{ borrower.section }}
+                                Born: {{ borrower.date_of_birth.strftime('%Y-%m-%d') if borrower.date_of_birth }}
                             </div>
                             <div class="text-sm text-gray-500">
-                                {{ borrower.street_name }}, {{ borrower.suburb }}
+                                Gender: {{ borrower.gender }}
+                            </div>
+                            <div class="text-sm text-gray-500">
+                                Phone: {{ borrower.phone }}
+                            </div>
+                            <div class="text-sm text-gray-500">
+                                Email: {{ borrower.email }}
                             </div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <!-- Employment Details -->
+                        <td class="px-6 py-4">
+                            <div class="text-sm text-gray-900">{{ borrower.employer_name }}</div>
+                            <div class="text-sm text-gray-500">Position: {{ borrower.position }}</div>
+                            <div class="text-sm text-gray-500">Department: {{ borrower.department }}</div>
+                            <div class="text-sm text-gray-500">Address: {{ borrower.employer_address }}</div>
+                        </td>
+                        <!-- Residential Address -->
+                        <td class="px-6 py-4">
+                            <div class="text-sm text-gray-900">{{ borrower.address }}</div>
+                            <div class="text-sm text-gray-500">{{ borrower.city }}</div>
+                            <div class="text-sm text-gray-500">{{ borrower.state }}</div>
+                            <div class="text-sm text-gray-500">
+                                Status: {{ borrower.marital_status }}
+                            </div>
+                        </td>
+                        <!-- Bank Details -->
+                        <td class="px-6 py-4">
                             <div class="text-sm text-gray-900">{{ borrower.bank_name }}</div>
+                            <div class="text-sm text-gray-500">Branch: {{ borrower.bank_branch }}</div>
                             <div class="text-sm text-gray-500">BSB: {{ borrower.bsb_code }}</div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <a href="#" class="text-indigo-600 hover:text-indigo-900">View Details</a>
+                            <div class="text-sm text-gray-500">Account: {{ borrower.account_name }}</div>
+                            <div class="text-sm text-gray-500">A/C #: {{ borrower.account_number }}</div>
+                            <div class="text-sm text-gray-500">Type: {{ borrower.account_type }}</div>
                         </td>
                     </tr>
                     {% endfor %}

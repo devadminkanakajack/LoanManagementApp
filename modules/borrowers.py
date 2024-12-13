@@ -1,48 +1,46 @@
-from flask import Blueprint, render_template, request, flash, redirect, url_for
+from flask import Blueprint, render_template, flash, request, redirect, url_for
 from flask_login import login_required
-from werkzeug.utils import secure_filename
+from db import db
+from datetime import datetime
 import csv
 import io
-from datetime import datetime
-from db import db
 
 bp = Blueprint('borrowers', __name__, url_prefix='/borrowers')
 
-class Borrower(db.Model):
-    """Borrower model without OCR capabilities"""
-    __tablename__ = 'borrowers'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Personal Details
-    surname = db.Column(db.String(100), nullable=False)
-    given_name = db.Column(db.String(100), nullable=False)
-    date_of_birth = db.Column(db.Date, nullable=False)
-    gender = db.Column(db.String(1), nullable=False)
-    mobile_number = db.Column(db.String(20), nullable=False)
-    email = db.Column(db.String(120), nullable=False)
-    
-    # Employment Details
-    company_department = db.Column(db.String(200), nullable=False)
-    file_number = db.Column(db.String(50), nullable=False)
-    position = db.Column(db.String(100), nullable=False)
-    postal_address = db.Column(db.String(200), nullable=False)
-    work_phone = db.Column(db.String(20), nullable=False)
-    date_employed = db.Column(db.Date, nullable=False)
-    paymaster = db.Column(db.String(200), nullable=False)
-    
-    # Residential Address
-    lot = db.Column(db.String(50), nullable=False)
-    section = db.Column(db.String(50), nullable=False)
-    suburb = db.Column(db.String(100), nullable=False)
-    street_name = db.Column(db.String(200), nullable=False)
-    marital_status = db.Column(db.String(20), nullable=False)
-    spouse_name = db.Column(db.String(200))
-    spouse_employer = db.Column(db.String(200))
-    spouse_contact = db.Column(db.String(20))
+@bp.route('/')
+@login_required
+def view_borrowers():
+    try:
+        # Query existing borrowers using SQLAlchemy ORM
+        borrowers = db.session.execute(
+            """
+            SELECT 
+                b.id,
+                b.full_name,
+                b.date_of_birth,
+                b.gender,
+                b.marital_status,
+                b.email,
+                b.phone,
+                b.position,
+                b.department,
+                b.employer_name,
+                b.employer_address,
+                b.address,
+                b.city,
+                b.state,
+                b.bank_name,
+                b.account_number,
+                b.bsb_code,
+                b.account_type
+            FROM borrowers b
+            ORDER BY b.full_name
+            """
+        ).fetchall()
+        return render_template('borrowers/index.html', borrowers=borrowers)
+    except Exception as e:
+        flash(f'Error loading borrowers: {str(e)}', 'error')
+        return render_template('borrowers/index.html', borrowers=[])
     
     # Loan Funding Details
     bank_name = db.Column(db.String(100))
@@ -96,11 +94,7 @@ class Borrower(db.Model):
     def __repr__(self):
         return f'<Borrower {self.surname}, {self.given_name}>'
 
-@bp.route('/')
-@login_required
-def view_borrowers():
-    borrowers = Borrower.query.all()
-    return render_template('borrowers/index.html', borrowers=borrowers)
+# Route already defined above
 
 @bp.route('/add', methods=['GET', 'POST'])
 @login_required

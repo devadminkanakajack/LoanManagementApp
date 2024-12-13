@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Analytics Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold">Analytics Dashboard</h1>
+        <p class="text-gray-600">Overview of loan performance and statistics</p>
+    </div>
+
+    <!-- Key Statistics -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold mb-2">Active Loans</h3>
+            <p class="text-3xl font-bold text-primary">{{ stats.active_loans }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold mb-2">Average Loan Amount</h3>
+            <p class="text-3xl font-bold text-primary">K{{ "%.2f"|format(stats.avg_loan_amount) }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold mb-2">Total Portfolio</h3>
+            <p class="text-3xl font-bold text-primary">K{{ "%.2f"|format(stats.total_portfolio) }}</p>
+        </div>
+    </div>
+
+    <!-- Monthly Trends -->
+    <div class="bg-white rounded-lg shadow p-6 mb-8">
+        <h3 class="text-xl font-semibold mb-4">Monthly Loan Trends</h3>
+        <div class="h-64">
+            <canvas id="monthlyTrendsChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Loan Type Distribution -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-xl font-semibold mb-4">Loan Type Distribution</h3>
+            <div class="h-64">
+                <canvas id="loanTypeChart"></canvas>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-xl font-semibold mb-4">Payment Performance</h3>
+            <div class="space-y-4">
+                <div>
+                    <div class="flex justify-between text-sm text-gray-600">
+                        <span>On-time Payments</span>
+                        <span>{{ "%.1f"|format(stats.ontime_payment_rate) }}%</span>
+                    </div>
+                    <div class="h-2 bg-gray-200 rounded-full mt-2">
+                        <div class="h-full bg-green-500 rounded-full" style="width: {{ stats.ontime_payment_rate }}%"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between text-sm text-gray-600">
+                        <span>Late Payments</span>
+                        <span>{{ "%.1f"|format(stats.late_payment_rate) }}%</span>
+                    </div>
+                    <div class="h-2 bg-gray-200 rounded-full mt-2">
+                        <div class="h-full bg-red-500 rounded-full" style="width: {{ stats.late_payment_rate }}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Monthly Trends Chart
+    new Chart(document.getElementById('monthlyTrendsChart'), {
+        type: 'line',
+        data: {
+            labels: {{ monthly_labels|tojson }},
+            datasets: [{
+                label: 'Loan Amount',
+                data: {{ monthly_amounts|tojson }},
+                borderColor: '#2563eb',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+
+    // Loan Type Distribution Chart
+    new Chart(document.getElementById('loanTypeChart'), {
+        type: 'doughnut',
+        data: {
+            labels: {{ loan_types|tojson }},
+            datasets: [{
+                data: {{ loan_type_distribution|tojson }},
+                backgroundColor: [
+                    '#2563eb',
+                    '#7c3aed',
+                    '#db2777',
+                    '#ea580c',
+                    '#16a34a'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+</script>
+{% endblock %}
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Loan Performance{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold">Loan Performance Analytics</h1>
+        <p class="text-gray-600">Detailed analysis of loan performance metrics</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Performance Metrics -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-xl font-semibold mb-4">Key Metrics</h3>
+            <div class="space-y-4">
+                <div>
+                    <p class="text-sm text-gray-600">Total Loans</p>
+                    <p class="text-2xl font-bold">{{ performance_stats.total_loans }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-600">Defaulted Loans</p>
+                    <p class="text-2xl font-bold text-red-600">{{ performance_stats.defaulted_loans }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-600">Default Rate</p>
+                    <p class="text-2xl font-bold">{{ "%.1f"|format(performance_stats.default_rate) }}%</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-600">Average Loan Amount</p>
+                    <p class="text-2xl font-bold">K{{ "%.2f"|format(performance_stats.avg_loan_amount) }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Visualization -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-xl font-semibold mb-4">Default Rate Visualization</h3>
+            <div class="h-64">
+                <canvas id="defaultRateChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Default Rate Chart
+    new Chart(document.getElementById('defaultRateChart'), {
+        type: 'pie',
+        data: {
+            labels: ['Performing Loans', 'Defaulted Loans'],
+            datasets: [{
+                data: [
+                    {{ performance_stats.total_loans - performance_stats.defaulted_loans }},
+                    {{ performance_stats.defaulted_loans }}
+                ],
+                backgroundColor: ['#16a34a', '#dc2626']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+</script>
+{% endblock %}
+{% endblock %}
