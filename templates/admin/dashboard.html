@@ -51,15 +51,16 @@
     </div>
 
     <!-- Chart initialization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const ctx = document.getElementById('loanDistributionChart').getContext('2d');
-            new Chart(ctx, {
+            const chart = new Chart(ctx, {
                 type: 'pie',
                 data: {
-                    labels: {{ loan_types|tojson }},
+                    labels: {{ loan_types|tojson|safe }},
                     datasets: [{
-                        data: {{ loan_distribution|tojson }},
+                        data: {{ loan_distribution|tojson|safe }},
                         backgroundColor: [
                             '#4F46E5',
                             '#10B981',
