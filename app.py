@@ -416,7 +416,7 @@ def index():
         if current_user.role == 'borrower':
             return redirect(url_for('customer_portal'))
         return redirect(url_for('dashboard'))
-    return render_template('index.html')
+    return render_template('index.html', show_apply=True)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -556,10 +556,7 @@ def customer_portal():
     return render_template('customer/portal.html', loans=loans, documents=documents)
 
 @app.route('/upload-application', methods=['GET', 'POST'])
-@login_required
 def upload_application():
-    if current_user.role != 'borrower':
-        return redirect(url_for('dashboard'))
         
     if request.method == 'POST':
         if 'application_document' not in request.files:
