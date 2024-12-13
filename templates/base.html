@@ -16,16 +16,16 @@
                 <h1 class="text-2xl font-bold">LoanManager</h1>
             </div>
             <nav>
-                <a href="{{ url_for('dashboard') }}" class="block py-2.5 px-4 rounded transition duration-200 {% if request.endpoint == 'dashboard' %}bg-gray-700{% endif %} hover:bg-gray-700">
+                <a href="{{ url_for('admin_dashboard') }}" class="block py-2.5 px-4 rounded transition duration-200 {% if request.endpoint == 'admin_dashboard' %}bg-gray-700{% endif %} hover:bg-gray-700">
                     Dashboard
                 </a>
-                <a href="{{ url_for('users') }}" class="block py-2.5 px-4 rounded transition duration-200 {% if request.endpoint == 'users' %}bg-gray-700{% endif %} hover:bg-gray-700">
+                <a href="{{ url_for('admin_users') }}" class="block py-2.5 px-4 rounded transition duration-200 {% if request.endpoint == 'admin_users' %}bg-gray-700{% endif %} hover:bg-gray-700">
                     User Management
                 </a>
-                <a href="{{ url_for('loans') }}" class="block py-2.5 px-4 rounded transition duration-200 {% if request.endpoint == 'loans' %}bg-gray-700{% endif %} hover:bg-gray-700">
+                <a href="{{ url_for('admin_loans') }}" class="block py-2.5 px-4 rounded transition duration-200 {% if request.endpoint == 'admin_loans' %}bg-gray-700{% endif %} hover:bg-gray-700">
                     Loan Applications
                 </a>
-                <a href="{{ url_for('analytics') }}" class="block py-2.5 px-4 rounded transition duration-200 {% if request.endpoint == 'analytics' %}bg-gray-700{% endif %} hover:bg-gray-700">
+                <a href="{{ url_for('admin_analytics') }}" class="block py-2.5 px-4 rounded transition duration-200 {% if request.endpoint == 'admin_analytics' %}bg-gray-700{% endif %} hover:bg-gray-700">
                     Analytics
                 </a>
             </nav>

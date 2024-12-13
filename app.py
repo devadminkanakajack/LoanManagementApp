@@ -382,6 +382,32 @@ def admin_dashboard():
     if current_user.role != 'admin':
         flash('Access denied. Admin privileges required.', 'error')
         return redirect(url_for('index'))
+
+@app.route('/admin/users')
+@login_required
+def admin_users():
+    if current_user.role != 'admin':
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('index'))
+    users = User.query.all()
+    return render_template('admin/users.html', users=users)
+
+@app.route('/admin/loans')
+@login_required
+def admin_loans():
+    if current_user.role != 'admin':
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('index'))
+    loans = Loan.query.all()
+    return render_template('admin/loans.html', loans=loans)
+
+@app.route('/admin/analytics')
+@login_required
+def admin_analytics():
+    if current_user.role != 'admin':
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('index'))
+    return render_template('admin/analytics.html')
     
     try:
         # Get loan statistics
