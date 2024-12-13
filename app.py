@@ -309,7 +309,7 @@ def index():
     if current_user.is_authenticated:
         if current_user.role == 'borrower':
             return redirect(url_for('customer_portal'))
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('admin_dashboard'))
     return render_template('index.html')
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -375,9 +375,9 @@ def logout():
     logout_user()
     return redirect(url_for('index'))
 
-@app.route('/dashboard')
+@app.route('/admin/dashboard')
 @login_required
-def dashboard():
+def admin_dashboard():
     # Check if user is admin
     if current_user.role != 'admin':
         flash('Access denied. Admin privileges required.', 'error')
