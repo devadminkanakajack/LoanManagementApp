@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Borrowers{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="flex justify-between items-center mb-8">
+        <div>
+            <h1 class="text-3xl font-bold">Borrowers</h1>
+            <p class="text-gray-600">View and manage borrower information</p>
+        </div>
+        <div class="flex gap-4">
+            <a href="{{ url_for('borrowers.add_borrower') }}" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90">
+                Add Borrower
+            </a>
+            <form action="{{ url_for('borrowers.bulk_upload_borrowers') }}" method="post" enctype="multipart/form-data" class="flex items-center gap-2">
+                <input type="file" name="file" accept=".csv" class="hidden" id="csv-upload">
+                <label for="csv-upload" class="bg-secondary text-white px-4 py-2 rounded-lg hover:bg-secondary/90 cursor-pointer">
+                    Upload CSV
+                </label>
+            </form>
+        </div>
+    </div>
+
+    <div class="bg-white shadow-md rounded-lg overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Name
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Contact
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Employment
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Address
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Bank Details
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for borrower in borrowers %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">
+                                {{ borrower.surname }}, {{ borrower.given_name }}
+                            </div>
+                            <div class="text-sm text-gray-500">
+                                Born: {{ borrower.date_of_birth.strftime('%Y-%m-%d') }}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ borrower.mobile_number }}</div>
+                            <div class="text-sm text-gray-500">{{ borrower.email }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ borrower.position }}</div>
+                            <div class="text-sm text-gray-500">{{ borrower.company_department }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">
+                                Lot {{ borrower.lot }}, Section {{ borrower.section }}
+                            </div>
+                            <div class="text-sm text-gray-500">
+                                {{ borrower.street_name }}, {{ borrower.suburb }}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ borrower.bank_name }}</div>
+                            <div class="text-sm text-gray-500">BSB: {{ borrower.bsb_code }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <a href="#" class="text-indigo-600 hover:text-indigo-900">View Details</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

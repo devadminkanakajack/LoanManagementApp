@@ -1,26 +1,55 @@
+import os
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from flask import Flask, render_template, request, redirect, url_for, flash
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import func
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from flask_migrate import Migrate
 from flask_mail import Mail, Message
-import os
+from flask_migrate import Migrate
+from db import db, init_db
 
+# Initialize Flask app
 app = Flask(__name__)
 
-# Email configuration
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
-app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
-app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
+# Configure SQLAlchemy
+database_url = os.environ.get('DATABASE_URL')
+if database_url and not database_url.endswith('?sslmode=require'):
+    database_url += '?sslmode=require'
 
+app.config.update(
+    SQLALCHEMY_DATABASE_URI=database_url,
+    SQLALCHEMY_TRACK_MODIFICATIONS=False,
+    SQLALCHEMY_ENGINE_OPTIONS={
+        'pool_size': 5,
+        'pool_recycle': 280,
+        'pool_timeout': 20,
+        'max_overflow': 2
+    },
+    SECRET_KEY=os.environ.get('SECRET_KEY', 'dev')
+)
+
+# Initialize extensions
+init_db(app)
 mail = Mail(app)
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+# Email configuration
+app.config.update(
+    MAIL_SERVER='smtp.gmail.com',
+    MAIL_PORT=587,
+    MAIL_USE_TLS=True,
+    MAIL_USERNAME=os.environ.get('MAIL_USERNAME'),
+    MAIL_PASSWORD=os.environ.get('MAIL_PASSWORD'),
+    MAIL_DEFAULT_SENDER=os.environ.get('MAIL_DEFAULT_SENDER')
+)
+
+# Import and initialize modules after db setup
+from modules import borrowers
+app.register_blueprint(borrowers.bp)
 
 def send_registration_email(user_email, username, is_application=False):
     """Send registration confirmation email"""
@@ -54,32 +83,12 @@ def send_registration_email(user_email, username, is_application=False):
     msg = Message(subject, recipients=[user_email], body=body)
     mail.send(msg)
 
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev')
-database_url = os.environ.get('DATABASE_URL')
-if database_url:
-    if not database_url.endswith('?sslmode=require'):
-        database_url += '?sslmode=require'
-app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_size': 5,
-    'pool_recycle': 280,
-    'pool_timeout': 20,
-    'max_overflow': 2
-}
-
 # File upload configuration
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-
-db = SQLAlchemy(app)
-migrate = Migrate(app, db)
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = 'login'
 
 # Models
 class Borrower(db.Model):
@@ -563,7 +572,7 @@ class Document(db.Model):
     __tablename__ = 'documents'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
-    loan_id = db.Column(db.Integer, db.ForeignKey('loan.id'), nullable=True)
+    loan_id = db.Column(db.Integer, db.ForeignKey('loans.id'), nullable=True)
     application_id = db.Column(db.Integer, db.ForeignKey('loan_application.id'), nullable=True)
     document_type = db.Column(db.String(50), nullable=False)  # payslip, employment_confirmation, data_entry, variation_advice, identification
     file_name = db.Column(db.String(255), nullable=False)  # Original filename
