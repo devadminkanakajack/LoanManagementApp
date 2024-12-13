@@ -207,11 +207,13 @@ class Loan(db.Model):
 class Document(db.Model):
     __tablename__ = 'documents'
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     loan_id = db.Column(db.Integer, db.ForeignKey('loan.id'), nullable=True)
     application_id = db.Column(db.Integer, db.ForeignKey('loan_application.id'), nullable=True)
     document_type = db.Column(db.String(50), nullable=False)  # payslip, employment_confirmation, data_entry, variation_advice, identification
     file_name = db.Column(db.String(255), nullable=False)  # Original filename
     file_path = db.Column(db.String(200), nullable=False)  # Full path to stored file
+    file_url = db.Column(db.String(200), nullable=False)  # URL to access the file
     uploaded_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     ocr_status = db.Column(db.String(20), nullable=False, default='pending')
     ocr_text = db.Column(db.Text)
@@ -398,6 +400,55 @@ def application_status():
         .order_by(LoanApplication.created_at.desc()).all()
     
     return render_template('customer/application_status.html', applications=applications)
+@app.route('/document-upload', methods=['GET', 'POST'])
+@login_required
+def upload_documents():
+    documents = Document.query.filter_by(user_id=current_user.id).all()
+    if request.method == 'POST':
+        if 'document' not in request.files:
+            flash('No file uploaded', 'error')
+            return redirect(request.url)
+            
+        file = request.files['document']
+        document_type = request.form.get('document_type')
+        
+        if file.filename == '':
+            flash('No selected file', 'error')
+            return redirect(request.url)
+        
+        if not document_type:
+            flash('Please select a document type', 'error')
+            return redirect(request.url)
+            
+        try:
+            filename = secure_filename(file.filename)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = f"{timestamp}_{filename}"
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            
+            file.save(file_path)
+            
+            document = Document(
+                user_id=current_user.id,
+                document_type=document_type,
+                file_name=filename,
+                file_path=file_path,
+                file_url=file_path,
+                ocr_status='pending'
+            )
+            
+            db.session.add(document)
+            db.session.commit()
+            
+            flash('Document uploaded successfully!', 'success')
+            return redirect(url_for('upload_documents'))
+            
+        except Exception as e:
+            print(f"Error uploading document: {str(e)}")
+            flash('Error uploading document. Please try again.', 'error')
+            return redirect(request.url)
+    
+    return render_template('customer/document_upload.html', documents=documents)
 
 @app.route('/upload-application', methods=['GET', 'POST'])
 def upload_application():
@@ -425,9 +476,11 @@ def upload_application():
             file.save(file_path)
             
             document = Document(
+                user_id=current_user.id,
                 document_type='loan_application',
                 file_name=filename,
                 file_path=file_path,
+                file_url=file_path,
                 ocr_status='pending',
                 uploaded_at=datetime.utcnow()
             )
@@ -442,9 +495,8 @@ def upload_application():
                 return redirect(request.url)
             
             if document.ocr_status == 'completed' and document.extracted_data:
-                user_id = current_user.id if current_user.is_authenticated else None
                 application = LoanApplication(
-                    user_id=user_id,
+                    user_id=current_user.id,
                     status='pending'
                 )
                 db.session.add(application)
@@ -486,8 +538,8 @@ def upload_application():
                             db.session.add(employment)
                         
                         db.session.commit()
-                        flash('Application submitted successfully! Please check your email for further instructions.', 'success')
-                        return redirect(url_for('index'))
+                        flash('Application submitted successfully! Please upload your documents.', 'success')
+                        return redirect(url_for('upload_documents'))
                         
                     except Exception as e:
                         db.session.rollback()
