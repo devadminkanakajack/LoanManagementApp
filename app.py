@@ -8,6 +8,49 @@ from flask_migrate import Migrate
 import os
 
 app = Flask(__name__)
+from flask_mail import Mail, Message
+
+# Email configuration
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
+
+mail = Mail(app)
+
+def send_registration_email(user_email, username, is_application=False):
+    """Send registration confirmation email"""
+    subject = "Welcome to KNR Financial Services"
+    if is_application:
+        body = f"""
+        Dear {username},
+        
+        Thank you for applying for a loan with KNR Financial Services. Your account has been automatically created with the following credentials:
+        
+        Username: {username}
+        Password: password1234
+        
+        Please login and change your password at your earliest convenience.
+        
+        Best regards,
+        KNR Financial Services Team
+        """
+    else:
+        body = f"""
+        Dear {username},
+        
+        Thank you for registering with KNR Financial Services. Your account has been successfully created.
+        
+        You can now login and apply for loans through our portal.
+        
+        Best regards,
+        KNR Financial Services Team
+        """
+    
+    msg = Message(subject, recipients=[user_email], body=body)
+    mail.send(msg)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev')
 # Configure database with SSL and connection pooling
 database_url = os.environ.get('DATABASE_URL')
@@ -400,7 +443,13 @@ def register():
         db.session.add(user)
         db.session.commit()
         
-        flash('Registration successful! Please login.')
+        # Send registration confirmation email
+        try:
+            send_registration_email(email, username)
+            flash('Registration successful! Please check your email for confirmation.')
+        except Exception as e:
+            flash('Registration successful! However, email notification could not be sent.')
+        
         return redirect(url_for('login'))
     
     return render_template('auth/register.html')
@@ -410,6 +459,17 @@ def create_user_from_application(personal_details):
     # Generate username from email
     email = personal_details.email
     username = email.split('@')[0]
+@app.route('/application-status')
+@login_required
+def application_status():
+    if current_user.role != 'borrower':
+        return redirect(url_for('dashboard'))
+    
+    applications = LoanApplication.query.filter_by(user_id=current_user.id)\
+        .order_by(LoanApplication.created_at.desc()).all()
+    
+    return render_template('customer/application_status.html', applications=applications)
+
     
     # Check if username exists and modify if needed
     base_username = username

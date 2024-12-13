@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8">Loan Application Status</h1>
+        
+        {% if applications %}
+        <div class="space-y-6">
+            {% for application in applications %}
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h2 class="text-xl font-semibold mb-2">Application #{{ application.id }}</h2>
+                        <p class="text-gray-600">Submitted on: {{ application.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                    </div>
+                    <div class="px-4 py-2 rounded-full 
+                        {% if application.status == 'approved' %}
+                            bg-green-100 text-green-800
+                        {% elif application.status == 'rejected' %}
+                            bg-red-100 text-red-800
+                        {% else %}
+                            bg-yellow-100 text-yellow-800
+                        {% endif %}">
+                        {{ application.status.title() }}
+                    </div>
+                </div>
+                
+                {% if application.loan_product %}
+                <div class="mt-4">
+                    <p class="text-gray-600">Loan Type: {{ application.loan_product.product_type.replace('_', ' ').title() }}</p>
+                    {% if application.financial_details %}
+                    <p class="text-gray-600">Amount: ${{ "%.2f"|format(application.financial_details.loan_amount) }}</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
+                <div class="mt-4 pt-4 border-t">
+                    <h3 class="font-semibold mb-2">Documents</h3>
+                    <ul class="list-disc list-inside space-y-1">
+                    {% for doc in application.documents %}
+                        <li class="text-gray-600">{{ doc.document_type.replace('_', ' ').title() }}</li>
+                    {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="bg-white p-6 rounded-lg shadow-md text-center">
+            <p class="text-gray-600">No loan applications found.</p>
+            <a href="{{ url_for('upload_application') }}" class="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                Apply for a Loan
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
