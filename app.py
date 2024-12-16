@@ -252,7 +252,6 @@ def admin_analytics():
         
         # Borrower demographics
         total_borrowers = Borrower.query.count()
-        avg_credit_score = db.session.query(func.avg(Borrower.credit_score)).scalar() or 0
         employment_types = db.session.query(
             Borrower.employment_type,
             func.count(Borrower.id)
