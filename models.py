@@ -78,16 +78,18 @@ class Loan(db.Model):
     __tablename__ = 'loans'
     
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     borrower_id = db.Column(db.Integer, db.ForeignKey('borrowers.id'), nullable=False)
-    
     amount = db.Column(db.Numeric(12, 2), nullable=False)
-    purpose = db.Column(db.String(200))
-    status = db.Column(db.String(20), default='pending')
+    term = db.Column(db.Integer)
+    interest_rate = db.Column(db.Numeric(5, 2))
+    approved_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    approved_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    status = db.Column(db.Text, default='pending')
+    purpose = db.Column(db.Text)
     
     # Relationships
+    approver = db.relationship('User', foreign_keys=[approved_by])
     repayments = db.relationship('RepaymentRecord', backref='loan', lazy=True)
 
 class RepaymentRecord(db.Model):

@@ -14,8 +14,8 @@ def index():
     try:
         # Loan statistics
         total_loans = Loan.query.count()
-        active_loans = Loan.query.filter_by(status='approved').count()
-        total_amount = db.session.query(func.sum(Loan.amount)).filter_by(status='approved').scalar() or 0
+        active_loans = Loan.query.filter(Loan.status.ilike('%approved%')).count()
+        total_amount = db.session.query(func.sum(Loan.amount)).filter(Loan.status.ilike('%approved%')).scalar() or 0
         avg_amount = total_amount / active_loans if active_loans > 0 else 0
         
         # Monthly loan trends (last 6 months)
