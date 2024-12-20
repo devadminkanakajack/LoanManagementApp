@@ -1,10 +1,10 @@
-import express, { type Express } from "express";
+import expres, { type Express } from "express";
 import { createServer } from "http";
 import { hash, compare } from "bcrypt";
 import session from "express-session";
 import { db } from "../db";
-import { users, loans, borrowers, payments } from "@db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { users, loans, borrowers } from "@db/schema";
+import { eq, sql } from "drizzle-orm";
 import MemoryStore from "memorystore";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -46,13 +46,12 @@ export function registerRoutes(app: Express) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
-      req.session.userId = user.id;
-      res.json({
+      req.session.user = {
         id: user.id,
         username: user.username,
         role: user.role,
         permissions: user.permissions
-      });
+      };
     } catch (error) {
       console.error("Login error:", error);
       res.status(500).json({ message: "Internal server error" });
@@ -66,63 +65,63 @@ export function registerRoutes(app: Express) {
   });
 
   // Registration route
-  app.post("/api/auth/register", async (req, res) => {
-    const { username, password, email, fullName, phoneNumber, address, employmentStatus, monthlyIncome } = req.body;
+app.post("/api/auth/register", async (req, res) => {
+  const { username, password, email, fullName, phoneNumber, address, employmentStatus, monthlyIncome } = req.body;
 
-    try {
-      // Check if username or email already exists
-      const existingUser = await db.query.users.findFirst({
-        where: eq(users.username, username)
-      });
+  try {
+    // Check if username or email already exists
+    const existingUser = await db.query.users.findFirst({
+      where: eq(users.username, username)
+    });
 
-      if (existingUser) {
-        return res.status(400).json({ message: "Username already exists" });
-      }
-
-      const existingEmail = await db.query.users.findFirst({
-        where: eq(users.email, email)
-      });
-
-      if (existingEmail) {
-        return res.status(400).json({ message: "Email already registered" });
-      }
-
-      // Hash password
-      const hashedPassword = await hash(password, 10);
-
-      // Create user with borrower role
-      const [newUser] = await db.insert(users).values({
-        username,
-        password: hashedPassword,
-        email,
-        fullName,
-        role: 'borrower',
-      }).returning();
-
-      // Create borrower record
-      await db.insert(borrowers).values({
-        userId: newUser.id,
-        phoneNumber,
-        address,
-        employmentStatus,
-        monthlyIncome: new Decimal(monthlyIncome),
-      });
-
-      res.status(201).json({ 
-        message: "Registration successful",
-        user: {
-          id: newUser.id,
-          username: newUser.username,
-          role: newUser.role,
-          email: newUser.email,
-          fullName: newUser.fullName
-        }
-      });
-    } catch (error) {
-      console.error("Registration error:", error);
-      res.status(500).json({ message: "Failed to register user" });
+    if (existingUser) {
+      return res.status(400).json({ message: "Username already exists" });
     }
-  });
+
+    const existingEmail = await db.query.users.findFirst({
+      where: eq(users.email, email)
+    });
+
+    if (existingEmail) {
+      return res.status(400).json({ message: "Email already registered" });
+    }
+
+    // Hash password
+    const hashedPassword = await hash(password, 10);
+
+    // Create user with borrower role
+    const [newUser] = await db.insert(users).values({
+      username,
+      password: hashedPassword,
+      email,
+      fullName,
+      role: 'borrower',
+    }).returning();
+
+    // Create borrower record with the new user's ID
+    await db.insert(borrowers).values({
+      userId: newUser.id, // Ensure this is correctly referencing the new user's ID
+      phoneNumber,
+      address,
+      employmentStatus,
+      monthlyIncome: new Decimal(monthlyIncome),
+    });
+
+    res.status(201).json({ 
+      message: "Registration successful",
+      user: {
+        id: newUser.id,
+        username: newUser.username,
+        role: newUser.role,
+        email: newUser.email,
+        fullName: newUser.fullName
+      }
+    });
+  } catch (error) {
+    console.error("Registration error:", error);
+    res.status(500).json({ message: "Failed to register user" });
+  }
+});
 
   // User routes
   app.get("/api/users", async (req, res) => {
