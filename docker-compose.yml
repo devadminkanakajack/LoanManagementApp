@@ -1,0 +1,10 @@
+version: '3.4'
+
+services:
+  loanmanagementapp:
+    image: loanmanagementapp
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports:
+      - 5000:5000
