@@ -1,4 +1,5 @@
 import os
+import time
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from flask import Flask, render_template, request, redirect, url_for, flash
@@ -23,6 +24,7 @@ database_url = os.environ.get('DATABASE_URL')
 if database_url and not database_url.endswith('?sslmode=require'):
     database_url += '?sslmode=require'
 
+# Enhanced database configuration with retry mechanism
 app.config.update(
     SQLALCHEMY_DATABASE_URI=database_url,
     SQLALCHEMY_TRACK_MODIFICATIONS=False,
@@ -30,7 +32,8 @@ app.config.update(
         'pool_size': 5,
         'pool_recycle': 280,
         'pool_timeout': 20,
-        'max_overflow': 2
+        'max_overflow': 2,
+        'pool_pre_ping': True  # Add connection testing
     },
     SECRET_KEY=os.environ.get('SECRET_KEY', 'dev')
 )
@@ -56,37 +59,54 @@ app.config.update(
 app.register_blueprint(analytics_bp)
 app.register_blueprint(borrowers_bp)
 
+# Add email configuration validation
+def validate_email_config():
+    required_configs = ['MAIL_USERNAME', 'MAIL_PASSWORD', 'MAIL_DEFAULT_SENDER']
+    missing_configs = [config for config in required_configs if not app.config.get(config)]
+    if missing_configs:
+        print(f"Warning: Missing email configurations: {', '.join(missing_configs)}")
+        return False
+    return True
+
+# Modify send_registration_email with validation
 def send_registration_email(user_email, username, is_application=False):
-    """Send registration confirmation email"""
-    subject = "Welcome to KNR Financial Services"
-    if is_application:
-        body = f"""
-        Dear {username},
-        
-        Thank you for applying for a loan with KNR Financial Services. Your account has been automatically created with the following credentials:
-        
-        Username: {username}
-        Password: password1234
-        
-        Please login and change your password at your earliest convenience.
-        
-        Best regards,
-        KNR Financial Services Team
-        """
-    else:
-        body = f"""
-        Dear {username},
-        
-        Thank you for registering with KNR Financial Services. Your account has been successfully created.
-        
-        You can now login and apply for loans through our portal.
-        
-        Best regards,
-        KNR Financial Services Team
-        """
+    """Send registration confirmation email with validation"""
+    if not validate_email_config():
+        raise ValueError("Email configuration is incomplete")
     
-    msg = Message(subject, recipients=[user_email], body=body)
-    mail.send(msg)
+    try:
+        subject = "Welcome to KNR Financial Services"
+        if is_application:
+            body = f"""
+            Dear {username},
+            
+            Thank you for applying for a loan with KNR Financial Services. Your account has been automatically created with the following credentials:
+            
+            Username: {username}
+            Password: password1234
+            
+            Please login and change your password at your earliest convenience.
+            
+            Best regards,
+            KNR Financial Services Team
+            """
+        else:
+            body = f"""
+            Dear {username},
+            
+            Thank you for registering with KNR Financial Services. Your account has been successfully created.
+            
+            You can now login and apply for loans through our portal.
+            
+            Best regards,
+            KNR Financial Services Team
+            """
+        
+        msg = Message(subject, recipients=[user_email], body=body)
+        mail.send(msg)
+    except Exception as e:
+        print(f"Failed to send email: {str(e)}")
+        raise
 
 # File upload configuration
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
@@ -95,6 +115,10 @@ if not os.path.exists(UPLOAD_FOLDER):
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
+# Add file type validation
+ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -378,52 +402,65 @@ def application_status():
 @app.route('/document-upload', methods=['GET', 'POST'])
 @login_required
 def upload_documents():
-    documents = Document.query.filter_by(user_id=current_user.id).all()
-    if request.method == 'POST':
-        if 'document' not in request.files:
-            flash('No file uploaded', 'error')
-            return redirect(request.url)
+    try:
+        documents = Document.query.filter_by(user_id=current_user.id).all()
+        if request.method == 'POST':
+            if 'document' not in request.files:
+                flash('No file uploaded', 'error')
+                return redirect(request.url)
+                
+            file = request.files['document']
+            document_type = request.form.get('document_type')
             
-        file = request.files['document']
-        document_type = request.form.get('document_type')
+            if file.filename == '':
+                flash('No selected file', 'error')
+                return redirect(request.url)
+            
+            if not allowed_file(file.filename):
+                flash('Invalid file type', 'error')
+                return redirect(request.url)
+            
+            if not document_type:
+                flash('Please select a document type', 'error')
+                return redirect(request.url)
+                
+            try:
+                filename = secure_filename(file.filename)
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                filename = f"{timestamp}_{filename}"
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                
+                # Ensure upload directory exists
+                os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                
+                file.save(file_path)
+                
+                document = Document(
+                    user_id=current_user.id,
+                    document_type=document_type,
+                    file_name=filename,
+                    file_path=file_path,
+                    file_url=file_path,
+                    ocr_status='pending'
+                )
+                
+                db.session.add(document)
+                db.session.commit()
+                
+                flash('Document uploaded successfully!', 'success')
+                return redirect(url_for('upload_documents'))
+                
+            except Exception as e:
+                db.session.rollback()
+                print(f"Error uploading document: {str(e)}")
+                flash('Error uploading document. Please try again.', 'error')
+                return redirect(request.url)
         
-        if file.filename == '':
-            flash('No selected file', 'error')
-            return redirect(request.url)
-        
-        if not document_type:
-            flash('Please select a document type', 'error')
-            return redirect(request.url)
-            
-        try:
-            filename = secure_filename(file.filename)
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"{timestamp}_{filename}"
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            
-            file.save(file_path)
-            
-            document = Document(
-                user_id=current_user.id,
-                document_type=document_type,
-                file_name=filename,
-                file_path=file_path,
-                file_url=file_path,
-                ocr_status='pending'
-            )
-            
-            db.session.add(document)
-            db.session.commit()
-            
-            flash('Document uploaded successfully!', 'success')
-            return redirect(url_for('upload_documents'))
-            
-        except Exception as e:
-            print(f"Error uploading document: {str(e)}")
-            flash('Error uploading document. Please try again.', 'error')
-            return redirect(request.url)
-    
-    return render_template('customer/document_upload.html', documents=documents)
+        return render_template('customer/document_upload.html', documents=documents)
+    except Exception as e:
+        print(f"Error in upload_documents: {str(e)}")
+        flash('An unexpected error occurred', 'error')
+        return redirect(url_for('index'))
 
 @app.route('/upload-application', methods=['GET', 'POST'])
 def upload_application():
@@ -552,30 +589,36 @@ def upload_application():
 if __name__ == '__main__':
     print("Initializing application...")
     with app.app_context():
-        try:
-            print("Creating database tables...")
-            db.create_all()
-            
-            print("Checking for admin user...")
-            admin = User.query.filter_by(username='DevAdmin').first()
-            if not admin:
-                print("Creating admin user...")
-                admin = User(
-                    username='DevAdmin',
-                    email='admin@knrfinancial.com',
-                    full_name='System Administrator',
-                    password_hash=generate_password_hash('password1234'),
-                    role='admin',
-                    client_number=User.generate_client_number()
-                )
-                db.session.add(admin)
-                db.session.commit()
-                print("Admin user created successfully")
-            else:
-                print("Admin user already exists")
-            
-            print("Starting Flask application...")
-            app.run(host='0.0.0.0', port=5000, debug=True)
-        except Exception as e:
-            print(f"Error during initialization: {str(e)}")
-            raise
+        retry_count = 3
+        while retry_count > 0:
+            try:
+                print("Creating database tables...")
+                db.create_all()
+                
+                print("Checking for admin user...")
+                admin = User.query.filter_by(username='DevAdmin').first()
+                if not admin:
+                    print("Creating admin user...")
+                    admin = User(
+                        username='DevAdmin',
+                        email='admin@knrfinancial.com',
+                        full_name='System Administrator',
+                        password_hash=generate_password_hash('password1234'),
+                        role='admin',
+                        client_number=User.generate_client_number()
+                    )
+                    db.session.add(admin)
+                    db.session.commit()
+                    print("Admin user created successfully")
+                
+                print("Starting Flask application...")
+                app.run(host='0.0.0.0', port=5000, debug=True)
+                break
+                
+            except Exception as e:
+                retry_count -= 1
+                print(f"Error during initialization (attempts left: {retry_count}): {str(e)}")
+                if retry_count == 0:
+                    raise
+                time.sleep(5)  # Wait before retrying
+
