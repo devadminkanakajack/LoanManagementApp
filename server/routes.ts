@@ -9,7 +9,7 @@ declare module "express-session" {
     user: { id: number };
   }
 }
-import { users, loans, borrowers } from "@db/schema";
+import { users, loans, borrowers, analytics } from "@db/schema";
 import { eq, sql } from "drizzle-orm";
 import MemoryStore from "memorystore";
 import path from "path";
@@ -220,7 +220,7 @@ export function registerRoutes(app: Express) {
         totalAmount: parseFloat(totalAmount[0]?.sum || '0'),
         defaultedLoans,
         monthlyLoans: monthlyLoans.map(loan => ({
-          month: new Date(loan.createdAt).toLocaleString('default', { month: 'short' }),
+          month: loan.createdAt ? new Date(loan.createdAt).toLocaleString('default', { month: 'short' }) : 'Unknown',
           amount: parseFloat(loan.metricValue.toString())
         }))
       });
