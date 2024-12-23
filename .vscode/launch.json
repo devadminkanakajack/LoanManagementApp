@@ -1,6 +1,39 @@
 {
     "configurations": [
         {
+            "name": "Python: Flask",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "flask",
+            "env": {
+                "FLASK_APP": "app.py",
+                "FLASK_ENV": "development",
+                "FLASK_DEBUG": "1"
+            },
+            "args": [
+                "run",
+                "--no-debugger",
+                "--port", "5000"
+            ],
+            "jinja": true
+        },
+        {
+            "type": "msedge",
+            "name": "Launch Edge",
+            "request": "launch",
+            "runtimeArgs": [
+                "--remote-debugging-port=9222"
+            ],
+            "url": "http://localhost:5000",
+            "webRoot": "${workspaceFolder}"
+        },
+        {
+            "type": "vscode-edge-devtools.debug",
+            "name": "Edge DevTools",
+            "request": "attach",
+            "url": "http://localhost:5000"
+        },
+        {
             "name": "Docker: Python - Flask",
             "type": "docker",
             "request": "launch",
@@ -51,6 +84,10 @@
         }
     ],
     "compounds": [
+        {
+            "name": "Flask + Edge",
+            "configurations": ["Docker: Python - Flask", "Launch Microsoft Edge", "Open Edge DevTools"]
+        },
         {
             "name": "Launch Edge Headless and attach DevTools",
             "configurations": [

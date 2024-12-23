@@ -35,6 +35,16 @@
 				],
 				"module": "flask"
 			}
+		},
+		{
+			"label": "Python: Flask",
+			"type": "shell",
+			"command": "python -m flask run",
+			"options": {
+				"env": {
+					"FLASK_APP": "app.py"
+				}
+			}
 		}
 	]
 }
