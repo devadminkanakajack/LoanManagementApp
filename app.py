@@ -1,19 +1,24 @@
+# Standard library imports
 import os
 import time
 from datetime import datetime
+
+# Third-party imports
 from dateutil.relativedelta import relativedelta
 from flask import Flask, render_template, request, redirect, url_for, flash
-from modules.analytics import bp as analytics_bp
-from modules.borrowers import bp as borrowers_bp
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.utils import secure_filename
 from flask_mail import Mail, Message
 from flask_migrate import Migrate
+from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
+from sqlalchemy import func
+
+# Local imports
+from modules.analytics import bp as analytics_bp
+from modules.borrowers import bp as borrowers_bp
 from db import db, init_db
 from models import User, Borrower, Loan, RepaymentRecord, Document
-from sqlalchemy import func
 
 
 # Initialize Flask app
@@ -621,4 +626,3 @@ if __name__ == '__main__':
                 if retry_count == 0:
                     raise
                 time.sleep(5)  # Wait before retrying
-
