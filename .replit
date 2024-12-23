@@ -5,33 +5,17 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 [nix]
 channel = "stable-24_05"
 
-[deployment]
-deploymentTarget = "cloudrun"
-build = ["npm", "run", "build"]
-run = ["npm", "run", "start"]
-
 [[ports]]
 localPort = 5000
-externalPort = 80
+externalPort = 5000
 
 [workflows]
-runButton = "Project"
+runButton = "Dev"
 
 [[workflows.workflow]]
-name = "Project"
+name = "Dev"
 mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Flask Server"
-
-[[workflows.workflow]]
-name = "Flask Server"
-author = "agent"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
+author = "local"
 
 [[workflows.workflow.tasks]]
 task = "packager.installForAll"
