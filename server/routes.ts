@@ -1,22 +1,49 @@
-import express, { type Express, type Request } from "express";
+import express, { type Express, type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { hash, compare } from "bcrypt";
 import session from "express-session";
 import { db } from "../db";
-
-declare module "express-session" {
-  interface SessionData {
-    user: { id: number };
-  }
-}
-import { users, loans, borrowers, analytics } from "@db/schema";
-import { eq, sql } from "drizzle-orm";
+import { users, loans, borrowers, analytics, payments } from "@db/schema";
+import { eq, sql, and, gte, lte } from "drizzle-orm";
 import MemoryStore from "memorystore";
 import path from "path";
 import { fileURLToPath } from "url";
 import Decimal from "decimal.js"; // Ensure Decimal is imported
 
 const SessionStore = MemoryStore(session);
+
+declare module "express-session" {
+  interface SessionData {
+    user: { id: number };
+  }
+}
+
+// Authentication middleware
+const requireAuth = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.session.user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  next();
+};
+
+// Role-based authorization middleware
+const requireRole = (roles: string[]) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.session.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, req.session.user.id)
+    });
+
+    if (!user || !roles.includes(user.role)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    next();
+  };
+};
 
 export function registerRoutes(app: Express) {
   // Session setup
@@ -38,6 +65,10 @@ export function registerRoutes(app: Express) {
   // Authentication routes
   app.post("/api/auth/login", async (req, res) => {
     const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
 
     try {
       const user = await db.query.users.findFirst({
@@ -150,41 +181,137 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  // Loan routes
-  app.get("/api/loans", async (req, res) => {
+  // Enhanced loan routes
+  app.get("/api/loans", requireAuth, async (req, res) => {
     try {
-      const allLoans = await db.query.loans.findMany({
+      const { status, startDate, endDate } = req.query;
+      let query = db.query.loans;
+      
+      if (status) {
+        query = query.where(eq(loans.status, status as string));
+      }
+      
+      if (startDate && endDate) {
+        query = query.where(and(
+          gte(loans.createdAt, new Date(startDate as string)),
+          lte(loans.createdAt, new Date(endDate as string))
+        ));
+      }
+
+      const allLoans = await query.findMany({
         with: {
           borrower: true,
           payments: true
         }
       });
+
       res.json(allLoans);
     } catch (error) {
+      console.error('Error fetching loans:', error);
       res.status(500).json({ message: "Failed to fetch loans" });
     }
   });
 
-  // Create new loan
-  app.post("/api/loans", async (req, res) => {
+  // Create loan endpoint with validation
+  app.post("/api/loans", requireAuth, requireRole(['admin', 'loan_officer']), async (req, res) => {
     try {
-      const newLoan = await db.insert(loans).values(req.body);
-      res.json(newLoan);
+      const { amount, interestRate, term, borrowerId } = req.body;
+
+      if (!amount || !interestRate || !term || !borrowerId) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const newLoan = await db.insert(loans).values({
+        amount: new Decimal(amount).toString(),
+        interestRate: new Decimal(interestRate).toString(),
+        term,
+        borrowerId,
+        status: 'pending',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).returning();
+
+      res.status(201).json(newLoan[0]);
     } catch (error) {
+      console.error('Error creating loan:', error);
       res.status(500).json({ message: "Failed to create loan" });
     }
   });
 
-  // Borrower routes
-  app.get("/api/borrowers", async (req, res) => {
+  // Update loan status
+  app.patch("/api/loans/:id/status", requireAuth, requireRole(['admin', 'loan_officer']), async (req, res) => {
     try {
-      const allBorrowers = await db.query.borrowers.findMany({
+      const { id } = req.params;
+      const { status } = req.body;
+
+      if (!['pending', 'approved', 'rejected', 'active', 'paid', 'defaulted'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+
+      const updatedLoan = await db.update(loans)
+        .set({ status, updatedAt: new Date() })
+        .where(eq(loans.id, parseInt(id)))
+        .returning();
+
+      if (!updatedLoan.length) {
+        return res.status(404).json({ message: "Loan not found" });
+      }
+
+      res.json(updatedLoan[0]);
+    } catch (error) {
+      console.error('Error updating loan status:', error);
+      res.status(500).json({ message: "Failed to update loan status" });
+    }
+  });
+
+  // Record loan payment
+  app.post("/api/loans/:id/payments", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { amount, paymentDate } = req.body;
+
+      if (!amount || !paymentDate) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const payment = await db.insert(payments).values({
+        loanId: parseInt(id),
+        amount: new Decimal(amount).toString(),
+        paymentDate: new Date(paymentDate),
+        createdAt: new Date()
+      }).returning();
+
+      res.status(201).json(payment[0]);
+    } catch (error) {
+      console.error('Error recording payment:', error);
+      res.status(500).json({ message: "Failed to record payment" });
+    }
+  });
+
+  // Enhanced borrower routes
+  app.get("/api/borrowers", requireAuth, requireRole(['admin', 'loan_officer']), async (req, res) => {
+    try {
+      const { search } = req.query;
+      let query = db.query.borrowers;
+      
+      if (search) {
+        // Add search functionality if needed
+      }
+
+      const allBorrowers = await query.findMany({
         with: {
-          loans: true
+          loans: true,
+          user: {
+            columns: {
+              password: false // Exclude sensitive data
+            }
+          }
         }
       });
+
       res.json(allBorrowers);
     } catch (error) {
+      console.error('Error fetching borrowers:', error);
       res.status(500).json({ message: "Failed to fetch borrowers" });
     }
   });
@@ -228,6 +355,12 @@ export function registerRoutes(app: Express) {
       console.error('Error fetching dashboard stats:', error);
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
     }
+  });
+
+  // Error handling middleware
+  app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+    console.error(err.stack);
+    res.status(500).json({ message: "Something broke!" });
   });
 
   // Serve static files from the React app
