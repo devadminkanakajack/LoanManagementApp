@@ -185,20 +185,22 @@ export function registerRoutes(app: Express) {
   app.get("/api/loans", requireAuth, async (req, res) => {
     try {
       const { status, startDate, endDate } = req.query;
-      let query = db.query.loans;
+      let whereConditions = undefined;
       
-      if (status) {
-        query = query.where(eq(loans.status, status as string));
+      if (status && ['active', 'pending', 'approved', 'rejected', 'completed', 'defaulted'].includes(status as string)) {
+        whereConditions = eq(loans.status, status as any);
       }
       
       if (startDate && endDate) {
-        query = query.where(and(
+        const dateCondition = and(
           gte(loans.createdAt, new Date(startDate as string)),
           lte(loans.createdAt, new Date(endDate as string))
-        ));
+        );
+        whereConditions = whereConditions ? and(whereConditions, dateCondition) : dateCondition;
       }
 
-      const allLoans = await query.findMany({
+      const allLoans = await db.query.loans.findMany({
+        where: whereConditions,
         with: {
           borrower: true,
           payments: true
@@ -215,9 +217,9 @@ export function registerRoutes(app: Express) {
   // Create loan endpoint with validation
   app.post("/api/loans", requireAuth, requireRole(['admin', 'loan_officer']), async (req, res) => {
     try {
-      const { amount, interestRate, term, borrowerId } = req.body;
+      const { amount, interestRate, term, borrowerId, purpose } = req.body;
 
-      if (!amount || !interestRate || !term || !borrowerId) {
+      if (!amount || !interestRate || !term || !borrowerId || !purpose) {
         return res.status(400).json({ message: "Missing required fields" });
       }
 
@@ -226,9 +228,9 @@ export function registerRoutes(app: Express) {
         interestRate: new Decimal(interestRate).toString(),
         term,
         borrowerId,
+        purpose,
         status: 'pending',
-        createdAt: new Date(),
-        updatedAt: new Date()
+        createdAt: new Date()
       }).returning();
 
       res.status(201).json(newLoan[0]);
@@ -249,7 +251,7 @@ export function registerRoutes(app: Express) {
       }
 
       const updatedLoan = await db.update(loans)
-        .set({ status, updatedAt: new Date() })
+        .set({ status })
         .where(eq(loans.id, parseInt(id)))
         .returning();
 
@@ -278,6 +280,7 @@ export function registerRoutes(app: Express) {
         loanId: parseInt(id),
         amount: new Decimal(amount).toString(),
         paymentDate: new Date(paymentDate),
+        status: 'pending',
         createdAt: new Date()
       }).returning();
 
