@@ -13,7 +13,8 @@
             "args": [
                 "run",
                 "--no-debugger",
-                "--port", "5000"
+                "--port",
+                "5000"
             ],
             "jinja": true
         },
@@ -86,7 +87,11 @@
     "compounds": [
         {
             "name": "Flask + Edge",
-            "configurations": ["Docker: Python - Flask", "Launch Microsoft Edge", "Open Edge DevTools"]
+            "configurations": [
+                "Docker: Python - Flask",
+                "Launch Microsoft Edge",
+                "Open Edge DevTools"
+            ]
         },
         {
             "name": "Launch Edge Headless and attach DevTools",
