@@ -29,6 +29,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="lg:hidden"
+            aria-label="Toggle sidebar"
           >
             <Menu className="h-6 w-6" />
           </button>
