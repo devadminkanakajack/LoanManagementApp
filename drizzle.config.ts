@@ -1,8 +1,11 @@
 import { defineConfig } from "drizzle-kit";
 
 if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL, ensure the database is provisioned");
+  throw new Error("DATABASE_URL not found in environment variables");
 }
+
+// For debugging connection
+console.log('Connecting to:', process.env.DATABASE_URL);
 
 export default defineConfig({
   out: "./migrations",
