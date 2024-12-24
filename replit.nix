@@ -1,17 +1,17 @@
 {pkgs}: {
   deps = [
-    pkgs.tesseract
-    pkgs.zlib
-    pkgs.tk
-    pkgs.tcl
-    pkgs.openjpeg
-    pkgs.libxcrypt
-    pkgs.libwebp
-    pkgs.libtiff
-    pkgs.libjpeg
-    pkgs.libimagequant
-    pkgs.lcms2
-    pkgs.freetype
-    pkgs.postgresql
+    pkgs.tesseract     # OCR (Optical Character Recognition) engine
+    pkgs.zlib          # Data compression library
+    pkgs.tk            # GUI toolkit
+    pkgs.tcl           # Programming language
+    pkgs.openjpeg      # JPEG 2000 codec
+    pkgs.libxcrypt     # Extended crypt library
+    pkgs.libwebp       # WebP image format library
+    pkgs.libtiff       # TIFF image format library
+    pkgs.libjpeg       # JPEG image format library
+    pkgs.libimagequant # Image color quantization library
+    pkgs.lcms2         # Little CMS color management library
+    pkgs.freetype      # Font rendering library
+    pkgs.postgresql    # PostgreSQL database
   ];
 }
