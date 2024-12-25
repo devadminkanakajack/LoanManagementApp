@@ -5,6 +5,7 @@
     "forceConsistentCasingInFileNames": true,
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",
+    "sourceMap": true,
     "noEmit": true,
     "module": "ESNext",
     "strict": true,
@@ -15,10 +16,15 @@
     "allowImportingTsExtensions": true,
     "moduleResolution": "bundler",
     "baseUrl": ".",
+    "outDir": "./dist",
     "types": ["node", "vite/client"],
     "paths": {
       "@/*": ["./client/src/*"],
       "@db/*": ["./db/*"]
     }
+  },
+  "type": "setting",
+  "settings": {
+    "typescript.tsserver.enableSourceMapSupport": true
   }
 }
