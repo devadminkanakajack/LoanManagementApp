@@ -4,7 +4,7 @@ import { hash, compare } from "bcrypt";
 import session from "express-session";
 import { db } from "../db";
 import { users, loans, borrowers, analytics, payments } from "@db/schema";
-import { eq, sql, and, gte, lte } from "drizzle-orm";
+import { eq, sql, and, gte, lte, like, or } from "drizzle-orm";
 import MemoryStore from "memorystore";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -598,14 +598,27 @@ export function registerRoutes(app: Express) {
       const { status, startDate, endDate, page = 1, limit = 10 } = req.query;
       const offset = (Number(page) - 1) * Number(limit);
 
-      const loans = await db.query.loans.findMany({
+      let whereConditions = undefined;
+      if (status && ['active', 'pending', 'approved', 'rejected', 'completed', 'defaulted'].includes(status as string)) {
+        whereConditions = eq(loans.status, status as 'active' | 'pending' | 'approved' | 'rejected' | 'completed' | 'defaulted');
+      }
+      if (startDate && endDate) {
+        const dateCondition = and(
+          gte(loans.createdAt, new Date(startDate as string)),
+          lte(loans.createdAt, new Date(endDate as string))
+        );
+        whereConditions = whereConditions ? and(whereConditions, dateCondition) : dateCondition;
+      }
+
+      const loanResults = await db.query.loans.findMany({
         where: whereConditions,
         with: { borrower: true, payments: true },
         limit: Number(limit),
         offset
       });
 
-      const total = await db.query.loans.count();
+      const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(loans);
+      const total = Number(count);
 
       res.json({
         data: loans,
@@ -627,18 +640,22 @@ export function registerRoutes(app: Express) {
       const { page = 1, limit = 10, search } = req.query;
       const offset = (Number(page) - 1) * Number(limit);
 
-      const borrowers = await db.query.borrowers.findMany({
-        where: search ? {
-          OR: [
-            { fullName: { contains: search as string } },
-            { email: { contains: search as string } }
-          ]
-        } : undefined,
+      const borrowerResults = await db.query.borrowers.findMany({
+        where: search ? 
+          or(
+            like(users.fullName, `%${search as string}%`),
+            like(users.email, `%${search as string}%`)
+          )
+        : undefined,
+        with: {
+          user: true
+        },
         limit: Number(limit),
         offset
       });
 
-      const total = await db.query.borrowers.count();
+      const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(borrowers);
+      const total = Number(count);
 
       res.json({
         data: borrowers,
@@ -660,10 +677,69 @@ export function registerRoutes(app: Express) {
       const stats = await getDashboardStats();
       res.json(stats);
     } catch (error) {
-      res.status 500).json({ error: 'Failed to fetch analytics' });
+      res.status(500).json({ error: 'Failed to fetch analytics' });
     }
   });
 
   const httpServer = createServer(app);
   return httpServer;
 }
+async function getDashboardStats() {
+  const today = new Date();
+  const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+  const [
+    totalActiveLoans,
+    totalBorrowers,
+    monthlyStats,
+    loansByStatus,
+    totalAmount
+  ] = await Promise.all([
+    db.select({ count: sql<number>`count(*)` })
+      .from(loans)
+      .where(eq(loans.status, 'active'))
+      .then(result => result[0].count),
+    
+    db.select({ count: sql<number>`count(*)` })
+      .from(borrowers)
+      .then(result => result[0].count),
+    
+    db.select({
+      totalLoans: sql<number>`count(*)`,
+      totalAmount: sql<string>`sum(${loans.amount}::numeric)::text`
+    })
+    .from(loans)
+    .where(and(
+      gte(loans.createdAt, firstDayOfMonth),
+      lte(loans.createdAt, lastDayOfMonth)
+    )),
+
+    db.select({
+      status: loans.status,
+      count: sql<number>`count(*)`
+    })
+    .from(loans)
+    .groupBy(loans.status),
+
+    db.select({
+      sum: sql<string>`sum(${loans.amount}::numeric)::text`
+    })
+    .from(loans)
+  ]);
+
+  return {
+    totalActiveLoans,
+    totalBorrowers,
+    monthlyStats: {
+      loans: monthlyStats[0]?.totalLoans || 0,
+      amount: parseFloat(monthlyStats[0]?.totalAmount || '0')
+    },
+    loansByStatus: Object.fromEntries(
+      loansByStatus.map(item => [item.status, item.count])
+    ),
+    totalAmount: parseFloat(totalAmount[0]?.sum || '0'),
+    lastUpdated: new Date().toISOString()
+  };
+}
+

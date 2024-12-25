@@ -7,12 +7,12 @@ import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
-    runtimeErrorOverlay(),
+    mode === 'development' && runtimeErrorOverlay(),
     themePlugin(),
-  ],
+  ].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "client", "src"),
@@ -26,8 +26,14 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
-    port: 5000,
+    port: process.env.VITE_PORT ? Number(process.env.VITE_PORT) : 5050,
+    proxy: {
+      '/api': {
+        target: process.env.VITE_API_URL || 'http://localhost:3000',
+        changeOrigin: true,
+      }
+    },
     strictPort: true,
     host: true
   }
-});
+}));
