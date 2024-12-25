@@ -25,11 +25,8 @@ from models import User, Borrower, Loan, RepaymentRecord, Document
 app = Flask(__name__)
 
 # Configure SQLAlchemy
-database_url = os.environ.get('DATABASE_URL')
-if database_url and not database_url.endswith('?sslmode=require'):
-    database_url += '?sslmode=require'
+database_url = 'postgresql://postgres:root1234@localhost:5050/postgres'
 
-# Enhanced database configuration with retry mechanism
 app.config.update(
     SQLALCHEMY_DATABASE_URI=database_url,
     SQLALCHEMY_TRACK_MODIFICATIONS=False,
