@@ -31,7 +31,11 @@ const SessionStore = MemoryStore(session);
 
 declare module "express-session" {
   interface SessionData {
-    user: { id: number };
+    user: { 
+      id: number;
+      role: string;
+      lastAccess?: string;
+    };
   }
 }
 
@@ -93,6 +97,23 @@ const createResponse = (data: any, message?: string) => ({
   message
 });
 
+// Enhanced input validation schemas
+const userSchema = z.object({
+  username: z.string().min(3).max(50),
+  password: z.string().min(8).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/),
+  email: z.string().email(),
+  fullName: z.string().min(2),
+  role: z.enum(['admin', 'loan_officer', 'borrower'])
+});
+
+const loanSchema = z.object({
+  amount: z.string().regex(/^\d+(\.\d{1,2})?$/),
+  interestRate: z.string().regex(/^\d+(\.\d{1,2})?$/),
+  term: z.number().positive(),
+  borrowerId: z.number().positive(),
+  purpose: z.string().min(5)
+});
+
 export function registerRoutes(app: Express) {
   // Session setup
   app.use(
@@ -119,6 +140,52 @@ export function registerRoutes(app: Express) {
   });
 
   app.use('/api/', limiter);
+
+  // Enhanced rate limiting configuration
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    message: { message: "Too many login attempts, please try again later" },
+    standardHeaders: true,
+    legacyHeaders: false
+  });
+
+  const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    message: { message: "Too many requests, please try again later" },
+    standardHeaders: true,
+    legacyHeaders: false
+  });
+
+  // Enhanced session configuration
+  app.use(
+    session({
+      store: new SessionStore({
+        checkPeriod: 86400000,
+        stale: false
+      }),
+      secret: process.env.SESSION_SECRET || "your-secret-key",
+      name: 'sessionId',
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        secure: process.env.NODE_ENV === "production",
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000,
+        sameSite: 'strict',
+        path: '/',
+        domain: process.env.NODE_ENV === 'production' ? process.env.DOMAIN : undefined
+      }
+    })
+  );
+
+  // Apply rate limiters
+  app.use('/api/auth/login', authLimiter);
+  app.use('/api/', apiLimiter);
+
+  // Enhanced password hashing configuration
+  const hashPassword = (password: string) => hash(password, 12);
 
   // Auth routes using Express Router
   const authRoutes = express.Router();
@@ -190,20 +257,16 @@ export function registerRoutes(app: Express) {
   });
   app.use('/api/loans', loanRoutes);
 
-  // Authentication routes
+  // Enhanced authentication route with validation
   app.post("/api/auth/login", validateRequest(loginSchema), async (req, res) => {
     const { username, password } = req.body;
-
-    if (!username || !password) {
-      return res.status(400).json({ message: "Missing required fields" });
-    }
 
     try {
       const user = await db.query.users.findFirst({
         where: eq(users.username, username)
       });
 
-      if (!user) {
+      if (!user || user.status !== 'active') {
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
@@ -212,7 +275,17 @@ export function registerRoutes(app: Express) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
-      req.session.user = { id: user.id }; // Ensure session user is initialized
+      req.session.user = { 
+        id: user.id,
+        role: user.role,
+        lastAccess: new Date().toISOString()
+      };
+
+      // Update last login timestamp
+      await db.update(users)
+        .set({ lastLoginAt: new Date() })
+        .where(eq(users.id, user.id));
+
       res.json({
         id: user.id,
         username: user.username,
@@ -234,47 +307,32 @@ export function registerRoutes(app: Express) {
     });
   });
 
-  // Registration route
-  app.post("/api/auth/register", async (req, res) => {
+  // Enhanced registration with stronger validation
+  app.post("/api/auth/register", validateRequest(userSchema), async (req, res) => {
     const { username, password, email, fullName, phoneNumber, address, employmentStatus, monthlyIncome } = req.body;
 
     try {
-      // Check if username or email already exists
-      const existingUser = await db.query.users.findFirst({
-        where: eq(users.username, username)
-      });
+      const hashedPassword = await hashPassword(password);
 
-      if (existingUser) {
-        return res.status(400).json({ message: "Username already exists" });
-      }
+      // Transaction to ensure atomicity
+      const newUser = await db.transaction(async (tx) => {
+        const [user] = await tx.insert(users).values({
+          username,
+          password: hashedPassword,
+          email,
+          fullName,
+          role: 'borrower',
+          status: 'active'
+        }).returning();
 
-      const existingEmail = await db.query.users.findFirst({
-        where: eq(users.email, email)
-      });
+        await tx.insert(borrowers).values({
+          phoneNumber,
+          address,
+          employmentStatus,
+          monthlyIncome: new Decimal(monthlyIncome).toString()
+        });
 
-      if (existingEmail) {
-        return res.status(400).json({ message: "Email already registered" });
-      }
-
-      // Hash password
-      const hashedPassword = await hash(password, 10);
-
-      // Create user with borrower role
-      const [newUser] = await db.insert(users).values({
-        username,
-        password: hashedPassword,
-        email,
-        fullName,
-        role: 'borrower',
-      }).returning();
-
-      // Create borrower record with the new user's ID
-      await db.insert(borrowers).values({
-        userId: newUser.id, // Ensure this is correctly referencing the new user's ID
-        phoneNumber,
-        address,
-        employmentStatus,
-        monthlyIncome: new Decimal(monthlyIncome).toString(), // Convert Decimal to string
+        return user;
       });
 
       res.status(201).json({ 
@@ -498,19 +556,17 @@ export function registerRoutes(app: Express) {
   const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction) => {
     console.error(err.stack);
     
-    if (err instanceof ValidationError) {
-      return res.status(400).json({ message: err.message });
-    }
-    
-    if (err instanceof AuthenticationError) {
-      return res.status(401).json({ message: err.message });
-    }
-  
-    res.status(500).json({ 
+    // Remove sensitive information from error responses
+    const sanitizedError = {
       message: process.env.NODE_ENV === 'production' 
         ? 'Internal server error' 
-        : err.message 
-    });
+        : err.message,
+      code: err instanceof ValidationError ? 400 
+        : err instanceof AuthenticationError ? 401 
+        : 500
+    };
+    
+    res.status(sanitizedError.code).json({ message: sanitizedError.message });
   };
   
   app.use(errorHandler);
