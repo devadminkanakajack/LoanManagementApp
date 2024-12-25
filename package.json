@@ -8,9 +8,10 @@
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --sourcemap",
     "start": "NODE_ENV=production node --enable-source-maps dist/index.js",
     "check": "tsc",
-    "db:push": "drizzle-kit push",
+    "db:push": "drizzle-kit push:pg",
+    "db:studio": "drizzle-kit studio",
     "test": "vitest",
-    "lint": "eslint . --ext .ts",
+    "lint": "eslint . --ext .ts,.tsx",
     "security-check": "npm audit",
     "debug": "NODE_ENV=development tsx --inspect server/index.ts"
   },
@@ -59,7 +60,7 @@
     "date-fns": "^3.6.0",
     "decimal": "^0.0.2",
     "decimal.js": "^10.4.3",
-    "drizzle-orm": "^0.36.4",
+    "drizzle-orm": "^0.29.3",
     "drizzle-zod": "^0.5.1",
     "embla-carousel-react": "^8.3.0",
     "express": "^4.21.2",
@@ -73,8 +74,7 @@
     "map": "^1.0.1",
     "memorystore": "^1.6.7",
     "passport": "^0.7.0",
-    "passport-local": "^1.0.0",
-    "pg": "^8.13.1",
+    "pg": "^8.11.3",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.3.1",
@@ -92,7 +92,7 @@
     "wouter": "^3.3.5",
     "ws": "^8.18.0",
     "zlib": "^1.0.5",
-    "zod": "^3.24.1"
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
@@ -113,15 +113,15 @@
     "@typescript-eslint/parser": "^5.57.1",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
-    "drizzle-kit": "^0.27.2",
+    "drizzle-kit": "^0.20.14",
     "esbuild": "^0.24.0",
     "eslint": "^8.37.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.16",
     "tsx": "^4.19.1",
-    "typescript": "^5.6.3",
-    "vite": "^5.4.11",
-    "vitest": "^0.29.8"
+    "typescript": "^5.3.3",
+    "vite": "^5.0.12",
+    "vitest": "^1.2.2"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"
