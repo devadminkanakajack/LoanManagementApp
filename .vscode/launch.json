@@ -157,14 +157,6 @@
                 "Launch Microsoft Edge",
                 "Open Edge DevTools"
             ]
-        },
-        {
-            "name": "Debug Full Stack",
-            "configurations": ["Launch Edge", "Launch Microsoft Edge"]
-        },
-        {
-            "name": "Full Stack Debug",
-            "configurations": ["Debug Server", "Launch Edge", "Edge DevTools"]
         }
     ]
 }
