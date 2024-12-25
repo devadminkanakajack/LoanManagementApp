@@ -6,6 +6,8 @@
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",
     "sourceMap": true,
+    "inlineSourceMap": false,
+    "inlineSources": false,
     "noEmit": true,
     "module": "ESNext",
     "strict": true,
