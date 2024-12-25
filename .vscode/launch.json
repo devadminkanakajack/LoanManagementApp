@@ -1,4 +1,5 @@
 {
+    "version": "0.2.0",
     "configurations": [
         {
             "name": "Python: Flask",
@@ -82,6 +83,27 @@
             "presentation": {
                 "hidden": true
             }
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Debug Server",
+            "skipFiles": ["<node_internals>/**"],
+            "program": "${workspaceFolder}/server/index.ts",
+            "runtimeExecutable": "tsx",
+            "sourceMaps": true,
+            "console": "integratedTerminal"
+        },
+        {
+            "type": "msedge",
+            "name": "Launch Edge against localhost",
+            "request": "launch",
+            "url": "http://localhost:5000",
+            "webRoot": "${workspaceFolder}/client",
+            "sourceMapPathOverrides": {
+                "/@fs/*": "${webRoot}/*",
+                "/@vite/*": "${webRoot}/*"
+            }
         }
     ],
     "compounds": [
@@ -106,6 +128,10 @@
                 "Launch Microsoft Edge",
                 "Open Edge DevTools"
             ]
+        },
+        {
+            "name": "Debug Full Stack",
+            "configurations": ["Launch Edge", "Launch Microsoft Edge"]
         }
     ]
 }

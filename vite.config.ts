@@ -21,7 +21,13 @@ export default defineConfig({
   },
   root: path.resolve(__dirname, "client"),
   build: {
+    sourcemap: true, // Enable source maps for production
     outDir: path.resolve(__dirname, "dist/public"),
     emptyOutDir: true,
   },
+  server: {
+    port: 5000,
+    strictPort: true,
+    host: true
+  }
 });
