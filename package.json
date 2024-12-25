@@ -70,6 +70,7 @@
     "input-otp": "^1.2.4",
     "libweb": "^14.0.0",
     "lucide-react": "^0.453.0",
+    "map": "^1.0.1",
     "memorystore": "^1.6.7",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
@@ -81,6 +82,8 @@
     "react-icons": "^5.4.0",
     "react-resizable-panels": "^2.1.4",
     "recharts": "^2.14.1",
+    "source": "^0.0.3",
+    "support": "^1.1.4",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "tesseract.js": "^5.1.1",
@@ -104,6 +107,7 @@
     "@types/passport-local": "^1.0.38",
     "@types/react": "^18.3.16",
     "@types/react-dom": "^18.3.5",
+    "@types/source-map-support": "^0.5.10",
     "@types/ws": "^8.5.13",
     "@typescript-eslint/eslint-plugin": "^5.57.1",
     "@typescript-eslint/parser": "^5.57.1",
@@ -116,8 +120,8 @@
     "tailwindcss": "^3.4.16",
     "tsx": "^4.19.1",
     "typescript": "^5.6.3",
-    "vitest": "^0.29.8",
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "vitest": "^0.29.8"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"
