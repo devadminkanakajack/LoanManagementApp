@@ -2,6 +2,7 @@
 import os
 import time
 from datetime import datetime
+from dotenv import load_dotenv
 
 # Third-party imports
 from dateutil.relativedelta import relativedelta
@@ -24,9 +25,13 @@ from models import User, Borrower, Loan, RepaymentRecord, Document
 # Initialize Flask app
 app = Flask(__name__)
 
-# Configure SQLAlchemy
-database_url = 'postgresql://postgres:root1234@localhost:5050/postgres'
+# Load environment variables
+load_dotenv()
 
+# Use environment variable
+database_url = os.getenv('DATABASE_URL')
+
+# Configure SQLAlchemy
 app.config.update(
     SQLALCHEMY_DATABASE_URI=database_url,
     SQLALCHEMY_TRACK_MODIFICATIONS=False,
