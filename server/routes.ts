@@ -9,6 +9,23 @@ import MemoryStore from "memorystore";
 import path from "path";
 import { fileURLToPath } from "url";
 import Decimal from "decimal.js"; // Ensure Decimal is imported
+import rateLimit from 'express-rate-limit';
+import { z } from 'zod';
+
+// Custom error classes
+class ValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
+
+class AuthenticationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AuthenticationError';
+  }
+}
 
 const SessionStore = MemoryStore(session);
 
@@ -26,7 +43,7 @@ const requireAuth = (req: Request, res: Response, next: NextFunction) => {
   next();
 };
 
-// Role-based authorization middleware
+// Add a more comprehensive role check middleware
 const requireRole = (roles: string[]) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     if (!req.session.user) {
@@ -34,16 +51,47 @@ const requireRole = (roles: string[]) => {
     }
 
     const user = await db.query.users.findFirst({
-      where: eq(users.id, req.session.user.id)
+      where: eq(users.id, req.session.user.id),
+      columns: {
+        role: true,
+        status: true
+      }
     });
 
-    if (!user || !roles.includes(user.role)) {
+    if (!user || !roles.includes(user.role) || user.status !== 'active') {
       return res.status(403).json({ message: "Forbidden" });
     }
 
     next();
   };
 };
+
+const loginSchema = z.object({
+  username: z.string().min(1),
+  password: z.string().min(6)
+});
+
+const validateRequest = (schema: z.ZodSchema) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      await schema.parseAsync(req.body);
+      next();
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Validation error", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Validation error" });
+      }
+    }
+  };
+};
+
+// Add a response wrapper utility
+const createResponse = (data: any, message?: string) => ({
+  success: true,
+  data,
+  message
+});
 
 export function registerRoutes(app: Express) {
   // Session setup
@@ -53,17 +101,97 @@ export function registerRoutes(app: Express) {
         checkPeriod: 86400000 // prune expired entries every 24h
       }),
       secret: process.env.SESSION_SECRET || "your-secret-key",
+      name: 'sessionId', // Change cookie name from default 'connect.sid'
       resave: false,
       saveUninitialized: false,
       cookie: {
         secure: process.env.NODE_ENV === "production",
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        sameSite: 'strict'
       }
     })
   );
 
+  const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100 // limit each IP to 100 requests per windowMs
+  });
+
+  app.use('/api/', limiter);
+
+  // Auth routes using Express Router
+  const authRoutes = express.Router();
+  app.use('/api/auth', authRoutes);
+
+  // Loan routes with role-based access
+  const loanRoutes = express.Router();
+  loanRoutes.use(requireAuth);
+  loanRoutes.get('/', requireRole(['admin', 'loan_officer']), async (req, res) => {
+    try {
+      const allLoans = await db.query.loans.findMany({
+        with: {
+          borrower: true,
+          payments: true
+        }
+      });
+      res.json(createResponse(allLoans, 'Loans retrieved successfully'));
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch loans" });
+    }
+  });
+  loanRoutes.post('/', requireRole(['admin', 'loan_officer']), async (req, res) => {
+    try {
+      const { amount, interestRate, term, borrowerId, purpose } = req.body;
+
+      if (!amount || !interestRate || !term || !borrowerId || !purpose) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const newLoan = await db.insert(loans).values({
+        amount: new Decimal(amount).toString(),
+        interestRate: new Decimal(interestRate).toString(),
+        term,
+        borrowerId,
+        purpose,
+        status: 'pending',
+        createdAt: new Date()
+      }).returning();
+
+      res.status(201).json(newLoan[0]);
+    } catch (error) {
+      console.error('Error creating loan:', error);
+      res.status(500).json({ message: "Failed to create loan" });
+    }
+  });
+  loanRoutes.patch('/:id/status', requireRole(['admin', 'loan_officer']), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+
+      if (!['pending', 'approved', 'rejected', 'active', 'paid', 'defaulted'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+
+      const updatedLoan = await db.update(loans)
+        .set({ status })
+        .where(eq(loans.id, parseInt(id)))
+        .returning();
+
+      if (!updatedLoan.length) {
+        return res.status(404).json({ message: "Loan not found" });
+      }
+
+      res.json(updatedLoan[0]);
+    } catch (error) {
+      console.error('Error updating loan status:', error);
+      res.status(500).json({ message: "Failed to update loan status" });
+    }
+  });
+  app.use('/api/loans', loanRoutes);
+
   // Authentication routes
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", validateRequest(loginSchema), async (req, res) => {
     const { username, password } = req.body;
 
     if (!username || !password) {
@@ -207,7 +335,7 @@ export function registerRoutes(app: Express) {
         }
       });
 
-      res.json(allLoans);
+      res.json(createResponse(allLoans, 'Loans retrieved successfully'));
     } catch (error) {
       console.error('Error fetching loans:', error);
       res.status(500).json({ message: "Failed to fetch loans" });
@@ -365,6 +493,27 @@ export function registerRoutes(app: Express) {
     console.error(err.stack);
     res.status(500).json({ message: "Something broke!" });
   });
+
+  // Add a centralized error handler
+  const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction) => {
+    console.error(err.stack);
+    
+    if (err instanceof ValidationError) {
+      return res.status(400).json({ message: err.message });
+    }
+    
+    if (err instanceof AuthenticationError) {
+      return res.status(401).json({ message: err.message });
+    }
+  
+    res.status(500).json({ 
+      message: process.env.NODE_ENV === 'production' 
+        ? 'Internal server error' 
+        : err.message 
+    });
+  };
+  
+  app.use(errorHandler);
 
   // Serve static files from the React app
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
