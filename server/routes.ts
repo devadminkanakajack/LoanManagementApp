@@ -584,6 +584,86 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // API Routes
+  app.use('/api/v1', apiLimiter);
+
+  // API Endpoints
+  app.get('/api/v1/status', (req, res) => {
+    res.json({ status: 'healthy', version: '1.0.0' });
+  });
+
+  // Loan API endpoints
+  loanRoutes.get('/api/v1/loans', requireRole(['admin', 'loan_officer']), async (req, res) => {
+    try {
+      const { status, startDate, endDate, page = 1, limit = 10 } = req.query;
+      const offset = (Number(page) - 1) * Number(limit);
+
+      const loans = await db.query.loans.findMany({
+        where: whereConditions,
+        with: { borrower: true, payments: true },
+        limit: Number(limit),
+        offset
+      });
+
+      const total = await db.query.loans.count();
+
+      res.json({
+        data: loans,
+        pagination: {
+          page: Number(page),
+          limit: Number(limit),
+          total,
+          pages: Math.ceil(total / Number(limit))
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch loans' });
+    }
+  });
+
+  // Borrower API endpoints
+  app.get('/api/v1/borrowers', requireRole(['admin', 'loan_officer']), async (req, res) => {
+    try {
+      const { page = 1, limit = 10, search } = req.query;
+      const offset = (Number(page) - 1) * Number(limit);
+
+      const borrowers = await db.query.borrowers.findMany({
+        where: search ? {
+          OR: [
+            { fullName: { contains: search as string } },
+            { email: { contains: search as string } }
+          ]
+        } : undefined,
+        limit: Number(limit),
+        offset
+      });
+
+      const total = await db.query.borrowers.count();
+
+      res.json({
+        data: borrowers,
+        pagination: {
+          page: Number(page),
+          limit: Number(limit),
+          total,
+          pages: Math.ceil(total / Number(limit))
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch borrowers' });
+    }
+  });
+
+  // Analytics API endpoints
+  app.get('/api/v1/analytics/dashboard', requireRole(['admin']), async (req, res) => {
+    try {
+      const stats = await getDashboardStats();
+      res.json(stats);
+    } catch (error) {
+      res.status 500).json({ error: 'Failed to fetch analytics' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

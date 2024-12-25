@@ -72,6 +72,19 @@ class Borrower(db.Model):
     
     def __repr__(self):
         return f'<Borrower {self.full_name}>'
+    
+    def to_dict(self):
+        """Convert borrower object to dictionary for API responses"""
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'full_name': self.full_name,
+            'email': self.email,
+            'phone': self.phone,
+            'employment_status': self.employment_status,
+            'monthly_income': str(self.monthly_income),
+            'created_at': self.created_at.isoformat()
+        }
 
 class Loan(db.Model):
     """Model for storing loan information"""
@@ -91,6 +104,20 @@ class Loan(db.Model):
     # Relationships
     approver = db.relationship('User', foreign_keys=[approved_by])
     repayments = db.relationship('RepaymentRecord', backref='loan', lazy=True)
+    
+    def to_dict(self):
+        """Convert loan object to dictionary for API responses"""
+        return {
+            'id': self.id,
+            'borrower_id': self.borrower_id,
+            'amount': str(self.amount),
+            'term': self.term,
+            'interest_rate': str(self.interest_rate),
+            'status': self.status,
+            'purpose': self.purpose,
+            'created_at': self.created_at.isoformat(),
+            'approved_at': self.approved_at.isoformat() if self.approved_at else None
+        }
 
 class RepaymentRecord(db.Model):
     """Model for tracking loan repayments"""

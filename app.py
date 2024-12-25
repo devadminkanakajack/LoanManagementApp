@@ -6,14 +6,15 @@ from dotenv import load_dotenv
 
 # Third-party imports
 from dateutil.relativedelta import relativedelta
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_sqlalchemy import SQLAlchemy
 from flask_mail import Mail, Message
 from flask_migrate import Migrate
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from sqlalchemy import func
+from sqlalchemy import func, or_
+from functools import wraps
 
 # Local imports
 from modules.analytics import bp as analytics_bp
@@ -592,6 +593,71 @@ def upload_application():
             return redirect(request.url)
     
     return render_template('customer/upload_application.html')
+
+def require_api_key(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        api_key = request.headers.get('X-API-Key')
+        if api_key and api_key == os.getenv('API_KEY'):
+            return f(*args, **kwargs)
+        return jsonify({'message': 'Invalid or missing API key'}), 401
+    return decorated
+
+# API endpoints
+@app.route('/api/v1/loans', methods=['GET'])
+@require_api_key
+def api_get_loans():
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('limit', 10))
+        status = request.args.get('status')
+
+        query = Loan.query
+        if status:
+            query = query.filter_by(status=status)
+
+        loans = query.paginate(page=page, per_page=per_page)
+        
+        return jsonify({
+            'data': [loan.to_dict() for loan in loans.items],
+            'pagination': {
+                'page': loans.page,
+                'pages': loans.pages,
+                'total': loans.total
+            }
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/v1/borrowers', methods=['GET'])
+@require_api_key
+def api_get_borrowers():
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('limit', 10))
+        search = request.args.get('search')
+
+        query = Borrower.query
+        if search:
+            query = query.filter(
+                or_(
+                    Borrower.full_name.ilike(f'%{search}%'),
+                    Borrower.email.ilike(f'%{search}%')
+                )
+            )
+
+        borrowers = query.paginate(page=page, per_page=per_page)
+        
+        return jsonify({
+            'data': [borrower.to_dict() for borrower in borrowers.items],
+            'pagination': {
+                'page': borrowers.page,
+                'pages': borrowers.pages,
+                'total': borrowers.total
+            }
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     print("Initializing application...")
