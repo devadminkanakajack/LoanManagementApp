@@ -2,10 +2,24 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { install } from 'source-map-support';
+import cors from 'cors';
+import compression from 'compression';
+import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
+import session from 'express-session'; 
+import rateLimit from 'express-rate-limit';
+import MemoryStore from 'memorystore';
 
 install();
 
 const app = express();
+const port = process.env.PORT || 3000;
+
+// Security middleware
+app.use(helmet());
+app.use(cors());
+app.use(compression());
+
 // Security headers
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -14,8 +28,35 @@ app.use((req, res, next) => {
   next();
 });
 
+// Body parsing middleware
 app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+// Session handling
+const MemoryStoreSession = MemoryStore(session);
+
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || 'your-secret-key',
+    resave: false, 
+    saveUninitialized: false,
+    store: new MemoryStoreSession({
+      checkPeriod: 86400000 // Prune expired entries every 24h
+    }),
+    cookie: {
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+  })
+);
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100 // limit each IP to 100 requests per windowMs
+});
+app.use(limiter);
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -74,3 +115,12 @@ app.use((req, res, next) => {
     log(`serving on port ${PORT}`);
   });
 })();
+
+// API routes will go here
+app.get('/', (req, res) => {
+  res.json({ message: 'Loan Management API' });
+});
+
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+});
