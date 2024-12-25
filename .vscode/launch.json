@@ -22,9 +22,27 @@
         },
         {
             "type": "msedge",
-            "name": "Launch Edge",
+            "name": "Launch Microsoft Edge",
             "request": "launch",
             "runtimeArgs": [
+                "--remote-debugging-port=5500"
+            ],
+            "url": "http://localhost:8080",
+            "webRoot": "${workspaceFolder}",
+            "presentation": {
+                "hidden": false
+            },
+            "sourceMapPathOverrides": {
+                "/@fs/*": "${webRoot}/*",
+                "/@vite/*": "${webRoot}/*"
+            }
+        },
+        {
+            "type": "msedge",
+            "name": "Launch Microsoft Edge (Headless)",
+            "request": "launch",
+            "runtimeArgs": [
+                "--headless",
                 "--remote-debugging-port=5500"
             ],
             "url": "http://localhost:8080",
@@ -40,84 +58,6 @@
             "url": "http://localhost:8080",
             "presentation": {
                 "hidden": false
-            }
-        },
-        {
-            "name": "Docker: Python - Flask",
-            "type": "docker",
-            "request": "launch",
-            "preLaunchTask": "docker-run: debug",
-            "python": {
-                "pathMappings": [
-                    {
-                        "localRoot": "${workspaceFolder}",
-                        "remoteRoot": "/app"
-                    }
-                ],
-                "projectType": "flask",
-                "env": {
-                    "FLASK_APP": "app.py"
-                }
-            }
-        },
-        {
-            "type": "msedge",
-            "name": "Launch Microsoft Edge",
-            "request": "launch",
-            "runtimeArgs": [
-                "--remote-debugging-port=5500"
-            ],
-            "url": "http://localhost:8080",
-            "webRoot": "${workspaceFolder}",
-            "presentation": {
-                "hidden": false
-            }
-        },
-        {
-            "type": "msedge",
-            "name": "Launch Microsoft Edge in headless mode",
-            "request": "launch",
-            "runtimeArgs": [
-                "--headless",
-                "--remote-debugging-port=5500"
-            ],
-            "url": "http://localhost:8080",
-            "webRoot": "${workspaceFolder}",
-            "presentation": {
-                "hidden": false
-            }
-        },
-        {
-            "type": "vscode-edge-devtools.debug",
-            "name": "Open Edge DevTools",
-            "request": "attach",
-            "url": "http://localhost:8080",
-            "presentation": {
-                "hidden": false
-            }
-        },
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Debug Server",
-            "skipFiles": ["<node_internals>/**"],
-            "program": "${workspaceFolder}/server/index.ts",
-            "runtimeExecutable": "tsx",
-            "sourceMaps": true,
-            "console": "integratedTerminal"
-        },
-        {
-            "type": "msedge",
-            "name": "Launch Edge against localhost",
-            "request": "launch",
-            "url": "http://localhost:8080",
-            "webRoot": "${workspaceFolder}",
-            "presentation": {
-                "hidden": false
-            },
-            "sourceMapPathOverrides": {
-                "/@fs/*": "${webRoot}/*",
-                "/@vite/*": "${webRoot}/*"
             }
         },
         {
@@ -139,23 +79,16 @@
         {
             "name": "Flask + Edge",
             "configurations": [
-                "Docker: Python - Flask",
+                "Python: Flask",
                 "Launch Microsoft Edge",
-                "Open Edge DevTools"
+                "Edge DevTools"
             ]
         },
         {
-            "name": "Launch Edge Headless and attach DevTools",
-            "configurations": [
-                "Launch Microsoft Edge in headless mode",
-                "Open Edge DevTools"
-            ]
-        },
-        {
-            "name": "Launch Edge and attach DevTools",
+            "name": "Edge Headless + DevTools",
             "configurations": [
                 "Launch Microsoft Edge",
-                "Open Edge DevTools"
+                "Edge DevTools"
             ]
         }
     ]
